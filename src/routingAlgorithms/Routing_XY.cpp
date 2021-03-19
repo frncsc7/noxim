@@ -13,10 +13,13 @@ Routing_XY * Routing_XY::getInstance() {
 
 vector<int> Routing_XY::route(Router * router, const RouteData & routeData)
 {
+    //cout << "Routing_XY::route: Source ID= "<<routeData.current_id<<endl;
+    //cout << "Routing_XY::route: Dest ID= "<<routeData.dst_id<<endl;
     Coord current = id2Coord(routeData.current_id);
     Coord destination = id2Coord(routeData.dst_id);
     vector <int> directions;
-
+    //cout << "Routing_XY::route : Source [X][Y]=["<<current.x<<"]["<<current.y<<"]"<<endl;
+    //cout << "Routing_XY::route : Dest [X][Y]=["<<destination.x<<"]["<<destination.y<<"]"<<endl;
     if (destination.x > current.x)
        directions.push_back(DIRECTION_EAST);
     else if (destination.x < current.x)

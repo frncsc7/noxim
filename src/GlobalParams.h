@@ -49,6 +49,8 @@ using namespace std;
 
 //Topologies
 #define TOPOLOGY_MESH          "MESH"
+#define TOPOLOGY_RING          "RING" // FM ADDED -> To be modeled
+#define TOPOLOGY_TORUS         "TORUS" // FM ADDED -> To be modeled: can be derived from a mesh
 //Delta Networks Topologies
 #define TOPOLOGY_BASELINE      "BASELINE"
 #define TOPOLOGY_BUTTERFLY     "BUTTERFLY"
@@ -74,6 +76,9 @@ using namespace std;
 #define TRAFFIC_BUTTERFLY      "TRAFFIC_BUTTERFLY"
 #define TRAFFIC_LOCAL	       "TRAFFIC_LOCAL"
 #define TRAFFIC_ULOCAL	       "TRAFFIC_ULOCAL"
+// FM: Try adding a type of traffic slide1up -> move data toward next destination
+#define TRAFFIC_SLIDEUP       "TRAFFIC_SLIDEUP"
+#define TRAFFIC_SLIDEDOWN     "TRAFFIC_SLIDEDOWN"
 
 // Verbosity levels
 #define VERBOSE_OFF            "VERBOSE_OFF"
@@ -185,6 +190,9 @@ struct GlobalParams {
     // out of yaml configuration
     static bool ascii_monitor;
     static int channel_selection;
+    //FM: Added for ring
+    static bool bidirectionality;
+    static int slide_offset;
 };
 
 #endif

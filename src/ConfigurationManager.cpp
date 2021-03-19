@@ -65,14 +65,22 @@ void loadConfiguration() {
         GlobalParams::n_delta_tiles = readParam<int>(config, "n_delta_tiles");
     }
 
+    // FM: Try adding ring topology type
+    if (GlobalParams::topology == TOPOLOGY_RING) { // FM: Already added in GlobalParams.h
+        GlobalParams::mesh_dim_x = readParam<int>(config, "mesh_dim_x"); // FM: Corresponds to the number of nodes, although not necessarily the ring has to be on a linear structure
+        GlobalParams::mesh_dim_y = readParam<int>(config, "mesh_dim_y");
+        GlobalParams::bidirectionality = readParam<bool>(config, "bidirectionality");
+        GlobalParams::slide_offset = readParam<int>(config, "slide_offset");
+    } // FM: Maybe should be something more similar to the instance of n_delta_tiles? Giving a go with this
+
     GlobalParams::r2r_link_length = readParam<double>(config, "r2r_link_length");
     GlobalParams::r2h_link_length = readParam<double>(config, "r2h_link_length");
     GlobalParams::buffer_depth = readParam<int>(config, "buffer_depth");
     GlobalParams::flit_size = readParam<int>(config, "flit_size");
     GlobalParams::min_packet_size = readParam<int>(config, "min_packet_size");
     GlobalParams::max_packet_size = readParam<int>(config, "max_packet_size");
-    GlobalParams::routing_algorithm = readParam<string>(config, "routing_algorithm");
-    GlobalParams::routing_table_filename = readParam<string>(config, "routing_table_filename"); 
+    GlobalParams::routing_algorithm = readParam<string>(config, "routing_algorithm"); // FM: Check where used
+    GlobalParams::routing_table_filename = readParam<string>(config, "routing_table_filename"); // FM: Check where used
     GlobalParams::selection_strategy = readParam<string>(config, "selection_strategy");
     GlobalParams::packet_injection_rate = readParam<double>(config, "packet_injection_rate");
     GlobalParams::probability_of_retransmission = readParam<double>(config, "probability_of_retransmission");
@@ -280,6 +288,9 @@ void showConfig()
 void checkConfiguration()
 {
 	if (GlobalParams::topology==TOPOLOGY_MESH)
+    // FM: modified, trying to set up a ring using mesh info (but ring topology can be added).
+    // FM: the thing is that the mesh, if y dimension is set to '1', will become a linear array
+    // rather than a ring, because the connection from the last to the first node is missing
 	{
 		if (GlobalParams::mesh_dim_x <= 1) {
 			cerr << "Error: dimx must be greater than 1" << endl;
@@ -295,8 +306,8 @@ void checkConfiguration()
 			cerr << "Error: winoc_dst_hops currently supported only in delta topologies" << endl;
 			exit(1);
 		}
-	}
-	else // other delta topologies
+	} // FM TODO: Add a case for the ring topology
+	else if (GlobalParams::topology!=TOPOLOGY_RING) // FM: Now topologies other than delta and mesh exist
 	{
 		int x = GlobalParams::n_delta_tiles;
 		while( x != 1)
@@ -338,9 +349,9 @@ void checkConfiguration()
 	exit(1);
     }
 
-    if (GlobalParams::min_packet_size < 2 ||
-	GlobalParams::max_packet_size < 2) {
-	cerr << "Error: packet size must be >= 2" << endl;
+    if (GlobalParams::min_packet_size < 1 ||   // FM: why? Maybe because they assume head+tail and eventually body?
+	GlobalParams::max_packet_size < 1) {       // However, it seems to work by changing this condition (should check in the routing code what really happens)
+	cerr << "Error: packet size must be >= 1" << endl;
 	exit(1);
     }
 
@@ -374,7 +385,7 @@ void checkConfiguration()
 		    exit(1);
 		}
 	}
-	else {
+	else if (GlobalParams::topology!=TOPOLOGY_RING) {
 		if (GlobalParams::hotspots[i].first >= GlobalParams::n_delta_tiles){
 		    cerr << "Error: hotspot node " << GlobalParams::hotspots[i].first << " is invalid (out of range)" << endl;
 		    exit(1);
@@ -451,7 +462,7 @@ void checkConfiguration()
     }
 }
 
-void parseCmdLine(int arg_num, char *arg_vet[])
+void parseCmdLine(int arg_num, char *arg_vet[]) // FM: check if parameters were passed on the command line
 {
     if (arg_num == 1)
 	cout <<
@@ -506,7 +517,7 @@ void parseCmdLine(int arg_num, char *arg_vet[])
 	    else if (!strcmp(arg_vet[i], "-topology")) 
 	    {
 		    GlobalParams::topology = arg_vet[++i];
-            cout << "Changing topology to " << GlobalParams::topology << endl;
+            cout << "Changing topology to " << GlobalParams::topology << endl; // FM: This is nice
         }
 	    else if (!strcmp(arg_vet[i], "-routing")) 
 	    {
@@ -599,6 +610,8 @@ void parseCmdLine(int arg_num, char *arg_vet[])
 		    atoi(arg_vet[++i]);
 	    else if (!strcmp(arg_vet[i], "-sim"))
 		GlobalParams::simulation_time = atoi(arg_vet[++i]);
+        else if (!strcmp(arg_vet[i], "-offset"))
+        GlobalParams::slide_offset = atoi(arg_vet[++i]); // FM: ADDED COMMAND LINE OPTION
 	    else if (!strcmp(arg_vet[i], "-asciimonitor")) 
 		GlobalParams::ascii_monitor = true;
 	    else if (!strcmp(arg_vet[i], "-config") || !strcmp(arg_vet[i], "-power"))
@@ -627,7 +640,7 @@ void configure(int arg_num, char *arg_vet[]) {
         }
     }
 
-    for (int i = 1; i < arg_num; i++) {
+    for (int i = 1; i < arg_num; i++) { // FM: looking for some name that matches a valid configuration file
 	    if (!strcmp(arg_vet[i], "-config")) {
             GlobalParams::config_filename = arg_vet[++i];
             config_found = true;
@@ -673,8 +686,10 @@ void configure(int arg_num, char *arg_vet[]) {
     checkConfiguration();
 
     // Show configuration
-    if (GlobalParams::verbose_mode > VERBOSE_OFF)
-	showConfig();
+    if (GlobalParams::verbose_mode > VERBOSE_OFF) { // FM: for some reasons, I can't see this being printed
+        cout << "Print out configuration info" << endl;
+	showConfig(); // FM: print out some information about the configuration
+    }
 }
 
 template <typename T> 

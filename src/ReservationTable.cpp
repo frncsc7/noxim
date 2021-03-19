@@ -55,6 +55,7 @@ int ReservationTable::checkReservation(const TReservation r, const int port_out)
 {
     /* Sanity Check for forbidden table status:
      * - same input/VC in a different output line */
+    //std::cout << "Inside checkReservation" << endl; // FM: Inside checkReservation
     for (int o=0;o<n_outputs;o++)
     {
 	for (vector<TReservation>::size_type i=0;i<rtable[o].reservations.size(); i++)
@@ -62,6 +63,7 @@ int ReservationTable::checkReservation(const TReservation r, const int port_out)
 	    // In the current implementation this should never happen
 	    if (o!=port_out && rtable[o].reservations[i] == r)
 	    {
+        std::cout << "Already Outher Out" << endl; // FM: Inside checkReservation
 		return RT_ALREADY_OTHER_OUT;
 	    }
 	}
@@ -74,14 +76,19 @@ int ReservationTable::checkReservation(const TReservation r, const int port_out)
     for (int i=0;i< n_reservations; i++)
     {
 	// the reservation is already present
-	if (rtable[port_out].reservations[i] == r)
+	if (rtable[port_out].reservations[i] == r) {
+        //std::cout << "RT ALREADY SAME" << endl; // FM: Inside checkReservation
 	    return RT_ALREADY_SAME;
+    }
 
 	// the same VC for that output has been reserved by another input
 	if (rtable[port_out].reservations[i].input != r.input &&
-	    rtable[port_out].reservations[i].vc == r.vc)
+	    rtable[port_out].reservations[i].vc == r.vc) {
+        //std::cout << "RT OUTVC BUSY" << endl; // FM: Inside checkReservation
 	    return RT_OUTVC_BUSY;
     }
+    }
+    //std::cout << "RT Available" << endl; // FM: Inside checkReservation
     return RT_AVAILABLE;
 }
 

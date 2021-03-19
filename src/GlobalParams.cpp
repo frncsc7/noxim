@@ -60,3 +60,7 @@ PowerConfig GlobalParams::power_configuration;
 // out of yaml configuration
 bool GlobalParams::ascii_monitor;
 int GlobalParams::channel_selection;
+
+// FM: Added for ring
+bool GlobalParams::bidirectionality; // FM: If false, then the ring is unidirectional
+int GlobalParams::slide_offset;

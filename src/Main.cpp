@@ -48,7 +48,8 @@ int sc_main(int arg_num, char *arg_vet[])
     cout << "Catania V., Mineo A., Monteleone S., Palesi M., and Patti D. (2016) Cycle-Accurate Network on Chip Simulation with Noxim. ACM Trans. Model. Comput. Simul. 27, 1, Article 4 (August 2016), 25 pages. DOI: https://doi.org/10.1145/2953878" << endl;
     cout << endl;
     cout << endl;
-
+    // FM ADDED
+//    cout << "Number of arguments:" << arg_num << endl;
     configure(arg_num, arg_vet);
 
 
@@ -57,6 +58,7 @@ int sc_main(int arg_num, char *arg_vet[])
     sc_signal <bool> reset;
 
     // NoC instance
+//    cout << "This should call the topology constructor" << endl;
     n = new NoC("NoC");
 
     n->clock(clock);
@@ -103,7 +105,7 @@ int sc_main(int arg_num, char *arg_vet[])
     cout << " done! " << endl;
     cout << " Now running for " << GlobalParams:: simulation_time << " cycles..." << endl;
     sc_start(GlobalParams::simulation_time, SC_NS);
-
+    cout << "Exiting sc_start " << endl;
 
     // Close the simulation
     if (GlobalParams::trace_mode) sc_close_vcd_trace_file(tf);

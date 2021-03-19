@@ -60,6 +60,8 @@ SC_MODULE(ProcessingElement)
     Packet trafficButterfly();	// Butterfly destination distribution
     Packet trafficLocal();	// Random with locality
     Packet trafficULocal();	// Random with locality
+    // FM: Added declaration of trafficSlideUp()
+    Packet trafficSlideUp();
 
     GlobalTrafficTable *traffic_table;	// Reference to the Global traffic Table
     bool never_transmit;	// true if the PE does not transmit any packet 

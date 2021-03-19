@@ -68,7 +68,35 @@ Flit ProcessingElement::nextFlit()
     flit.timestamp = packet.timestamp;
     flit.sequence_no = packet.size - packet.flit_left;
     flit.sequence_length = packet.size;
-    flit.hop_no = 0;
+    if (GlobalParams::topology == TOPOLOGY_RING) {
+        if (!GlobalParams::bidirectionality) {
+            if (flit.src_id > flit.dst_id) {
+                flit.hop_no = (GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y) - flit.src_id + flit.dst_id;
+            }
+            else
+                flit.hop_no = flit.dst_id - flit.src_id;
+        }
+        else {
+            if (flit.src_id > flit.dst_id) {
+                if (flit.src_id - flit.dst_id > GlobalParams::mesh_dim_x) {
+                    flit.hop_no = (GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y) - flit.src_id + flit.dst_id;
+                }
+                else {
+                    flit.hop_no = flit.src_id - flit.dst_id;
+                }
+            }
+            else {
+                if (flit.src_id - flit.dst_id > GlobalParams::mesh_dim_x) {
+                    flit.hop_no = (GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y) - flit.dst_id + flit.src_id;
+                }
+                else {
+                    flit.hop_no = flit.dst_id - flit.src_id;
+                }
+            }
+        }
+    }
+    else
+        flit.hop_no = 0;
     //  flit.payload     = DEFAULT_PAYLOAD;
 
     flit.hub_relay_node = NOT_VALID;
@@ -125,8 +153,10 @@ bool ProcessingElement::canShot(Packet & packet)
 		    packet = trafficRandom();
         else if (GlobalParams::traffic_distribution == TRAFFIC_TRANSPOSE1)
 		    packet = trafficTranspose1();
-        else if (GlobalParams::traffic_distribution == TRAFFIC_TRANSPOSE2)
+        else if (GlobalParams::traffic_distribution == TRAFFIC_TRANSPOSE2) {
+            //cout << "Inside ProcessingElement.cpp, traffic is transpose" << endl;
     		packet = trafficTranspose2();
+        }
         else if (GlobalParams::traffic_distribution == TRAFFIC_BIT_REVERSAL)
 		    packet = trafficBitReversal();
         else if (GlobalParams::traffic_distribution == TRAFFIC_SHUFFLE)
@@ -137,6 +167,8 @@ bool ProcessingElement::canShot(Packet & packet)
 		    packet = trafficLocal();
         else if (GlobalParams::traffic_distribution == TRAFFIC_ULOCAL)
 		    packet = trafficULocal();
+        else if (GlobalParams::traffic_distribution == TRAFFIC_SLIDEUP)
+            packet = trafficSlideUp();
         else {
             cout << "Invalid traffic distribution: " << GlobalParams::traffic_distribution << endl;
             exit(-1);
@@ -204,7 +236,7 @@ Packet ProcessingElement::trafficLocal()
 
 int ProcessingElement::findRandomDestination(int id, int hops)
 {
-    assert(GlobalParams::topology == TOPOLOGY_MESH);
+    assert((GlobalParams::topology == TOPOLOGY_MESH) || (GlobalParams::topology == TOPOLOGY_RING));
 
     int inc_y = rand()%2?-1:1;
     int inc_x = rand()%2?-1:1;
@@ -281,7 +313,7 @@ Packet ProcessingElement::trafficRandom()
     double range_start = 0.0;
     int max_id;
 
-    if (GlobalParams::topology == TOPOLOGY_MESH)
+    if ((GlobalParams::topology == TOPOLOGY_MESH) || (GlobalParams::topology == TOPOLOGY_RING))
 	max_id = (GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y) - 1; //Mesh 
     else    // other delta topologies
 	max_id = GlobalParams::n_delta_tiles-1; 
@@ -302,7 +334,7 @@ Packet ProcessingElement::trafficRandom()
 		range_start += GlobalParams::hotspots[i].second;	// try next
 	}
 #ifdef DEADLOCK_AVOIDANCE
-	assert((GlobalParams::topology == TOPOLOGY_MESH));
+	assert((GlobalParams::topology == TOPOLOGY_MESH) || (GlobalParams::topology == TOPOLOGY_RING));
 	if (p.dst_id%2!=0)
 	{
 	    p.dst_id = (p.dst_id+1)%256;
@@ -333,7 +365,7 @@ Packet ProcessingElement::trafficTest()
 
 Packet ProcessingElement::trafficTranspose1()
 {
-    assert(GlobalParams::topology == TOPOLOGY_MESH);
+    assert((GlobalParams::topology == TOPOLOGY_MESH) || (GlobalParams::topology == TOPOLOGY_RING));
     Packet p;
     p.src_id = local_id;
     Coord src, dst;
@@ -355,11 +387,10 @@ Packet ProcessingElement::trafficTranspose1()
 
 Packet ProcessingElement::trafficTranspose2()
 {
-    assert(GlobalParams::topology == TOPOLOGY_MESH);
+    assert((GlobalParams::topology == TOPOLOGY_MESH)||(GlobalParams::topology == TOPOLOGY_RING));
     Packet p;
     p.src_id = local_id;
     Coord src, dst;
-
     // Transpose 2 destination distribution
     src.x = id2Coord(p.src_id).x;
     src.y = id2Coord(p.src_id).y;
@@ -367,7 +398,6 @@ Packet ProcessingElement::trafficTranspose2()
     dst.y = src.x;
     fixRanges(src, dst);
     p.dst_id = coord2Id(dst);
-
     p.vc_id = randInt(0,GlobalParams::n_virtual_channels-1);
     p.timestamp = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
     p.size = p.flit_left = getRandomSize();
@@ -460,6 +490,38 @@ Packet ProcessingElement::trafficButterfly()
     p.src_id = local_id;
     p.dst_id = dnode;
 
+    p.vc_id = randInt(0,GlobalParams::n_virtual_channels-1);
+    p.timestamp = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
+    p.size = p.flit_left = getRandomSize();
+
+    return p;
+}
+
+// FM: Added trafficSlideUp function
+Packet ProcessingElement::trafficSlideUp()
+{
+    int max_id;
+    Packet p;
+    p.src_id = local_id;
+    //cout << "Source " << p.src_id;
+    max_id = GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y - 1;
+    // if (local_id%2==0) {
+    //     if (local_id == max_id - 1) {
+    //         p.dst_id = max_id;
+    //     }
+    //     else
+    //         p.dst_id = local_id + 2;
+    // }
+    // else {
+    //     if (local_id == 1) {
+    //         p.dst_id = 0;
+    //     }
+    //     else
+    //         p.dst_id = local_id - 2;
+    // }
+    // FM: TRY
+    p.dst_id = (local_id + GlobalParams::slide_offset)%(max_id+1);
+    //cout << " Destination  " << p.dst_id << endl;
     p.vc_id = randInt(0,GlobalParams::n_virtual_channels-1);
     p.timestamp = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
     p.size = p.flit_left = getRandomSize();

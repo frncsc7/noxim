@@ -94,16 +94,19 @@ SC_MODULE(NoC)
     {
 
 
-	if (GlobalParams::topology == TOPOLOGY_MESH)
+	if (GlobalParams::topology == TOPOLOGY_MESH) {
 	    // Build the Mesh
-	    buildMesh();
+        //cout << "Calling topology Constructor" << endl;
+	    buildMesh();} // FM: call to function for effectively building the topology -> should get a similar one for the ring too.
 	else if (GlobalParams::topology == TOPOLOGY_BUTTERFLY)
         buildButterfly(); 
 	else if (GlobalParams::topology == TOPOLOGY_BASELINE)
 	    buildBaseline();
 	else if (GlobalParams::topology == TOPOLOGY_OMEGA)
 	    buildOmega();
-	else {
+	else if (GlobalParams::topology == TOPOLOGY_RING) // FM: Additional check for adding ring topologies
+        buildRing();
+    else{
 	    cerr << "ERROR: Topology " << GlobalParams::topology << " is not yet supported." << endl;
 	    exit(0);
     }
@@ -128,6 +131,7 @@ SC_MODULE(NoC)
     void buildButterfly();
     void buildBaseline();
     void buildOmega();
+    void buildRing(); // FM: Added new build function for ring topologies
     void buildCommon();
     void asciiMonitor();
     int * hub_connected_ports;

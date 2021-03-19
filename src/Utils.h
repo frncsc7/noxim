@@ -80,7 +80,7 @@ inline ostream & operator <<(ostream & os, const Flit & flit)
 	    timestamp << endl;
 	os << "Total number of hops from source to destination is " <<
 	    flit.hop_no << endl;
-    } else {
+    } else { // FM: Goes here only if the the verbose mode is not set to VERBOSE_HIGH
 	os << "(";
 	switch (flit.flit_type) {
 	case FLIT_TYPE_HEAD:
@@ -179,6 +179,23 @@ inline Coord id2Coord(int id)
         assert(coord.x < GlobalParams::mesh_dim_x);
         assert(coord.y < GlobalParams::mesh_dim_y);
     }
+    else if (GlobalParams::topology == TOPOLOGY_RING)
+    {
+        //cout << "Utils::ID->Coordinates for RING" << endl;
+        if (id >= GlobalParams::mesh_dim_x) {
+            coord.x = (GlobalParams::mesh_dim_x*GlobalParams::mesh_dim_y)- id - 1;
+            coord.y = 1;
+        }
+        else {
+            coord.x = id;
+            coord.y = 0;
+        }
+        // coord.x = id / GlobalParams::mesh_dim_y;
+        // coord.y = id % GlobalParams::mesh_dim_y;
+
+        assert(coord.x < GlobalParams::mesh_dim_x);
+        assert(coord.y < GlobalParams::mesh_dim_y);
+    }
     else // other delta topologies
     {
         id = id - GlobalParams::n_delta_tiles;
@@ -198,6 +215,15 @@ inline int coord2Id(const Coord & coord)
     if (GlobalParams::topology == TOPOLOGY_MESH)
     {
         id = (coord.y * GlobalParams::mesh_dim_x) + coord.x;
+        assert(id < GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y);
+    }
+    else if (GlobalParams::topology == TOPOLOGY_RING)
+    {
+        //cout << "Utils::coord2Id: Coordinates->ID for RING" << endl;
+        if (coord.y == 0)
+            id = coord.x;
+        else
+            id = (GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y) - (coord.x + coord.y);
         assert(id < GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y);
     }
     else
