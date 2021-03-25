@@ -43,7 +43,7 @@ void ProcessingElement::txProcess()
             //LOG << "Function canShot returned true" << endl; // FM
 	       packet_queue.push(packet);
            n_packets = n_packets + 1;
-           LOG << "Currently, " << n_packets << " packets have been generated" << endl;
+           //LOG << "Currently, " << n_packets << " packets have been generated" << endl;
 	       transmittedAtPreviousCycle = true;
 	   } else {
 	       transmittedAtPreviousCycle = false;
@@ -116,8 +116,10 @@ Flit ProcessingElement::nextFlit()
 	flit.flit_type = FLIT_TYPE_BODY;
 
     packet_queue.front().flit_left--;
-    if (packet_queue.front().flit_left == 0)
-	packet_queue.pop();
+    if (packet_queue.front().flit_left == 0) {
+        //LOG << "Popping packet" << endl;
+        packet_queue.pop();
+    }
 
     return flit;
 }

@@ -59,7 +59,7 @@ void Router::rxProcess()
             // Store the incoming flit in the circular buffer
             //std::cout << "Flit stored as buffer wasn't full" << endl;
             buffer[i][vc].Push(received_flit);
-            //LOG << " Flit " << received_flit << " collected from Input[" << i << "][" << vc <<"]" << endl;
+            LOG << " Flit " << received_flit << " collected from Input[" << i << "][" << vc <<"]" << endl;
 
             power.bufferRouterPush();
 
@@ -90,6 +90,34 @@ void Router::rxProcess()
         buffer_full_status_rx[i].write(bfs);
     }
     }
+}
+
+// FM ADDED
+void Router::rxProcessPE()
+{
+  int input_reqs;
+  if (reset.read()) {
+    input_reqs = 0;
+    req_PE.write(0);
+  }
+
+  else {
+    for (int i = 0; i < DIRECTIONS; ++i) {
+      if (req_rx[i].read()) {
+        input_reqs = input_reqs + 1;
+      }
+    }
+    if (input_reqs > 0) {
+      LOG << "Ring is busy, no request from the PE cannot be approved" << endl;
+      input_reqs = 0;
+      req_PE.write(0);
+    }
+    else {
+      LOG << "Ring is free, a request from the PE has to be approved!!!" << endl;
+      input_reqs = 0;
+      req_PE.write(0);
+    }
+  }
 }
 
 void Router::txProcess()
@@ -157,20 +185,20 @@ void Router::txProcess()
 
               if (rt_status == RT_AVAILABLE) 
               {
-              //LOG << " reserving direction " << o << " for flit " << flit << endl;
+              LOG << " reserving direction " << o << " for flit " << flit << endl;
               reservation_table.reserve(r, o);
               }
               else if (rt_status == RT_ALREADY_SAME)
               {
-              //LOG << " RT_ALREADY_SAME reserved direction " << o << " for flit " << flit << endl;
+              LOG << " RT_ALREADY_SAME reserved direction " << o << " for flit " << flit << endl;
               }
               else if (rt_status == RT_OUTVC_BUSY)
               {
-              //LOG << " RT_OUTVC_BUSY reservation direction " << o << " for flit " << flit << endl;
+              LOG << " RT_OUTVC_BUSY reservation direction " << o << " for flit " << flit << endl;
               }
               else if (rt_status == RT_ALREADY_OTHER_OUT)
               {
-              //LOG  << "RT_ALREADY_OTHER_OUT: another output previously reserved for the same flit " << endl;
+              LOG  << "RT_ALREADY_OTHER_OUT: another output previously reserved for the same flit " << endl;
               }
               else {
                 assert(false); // no meaningful status here
