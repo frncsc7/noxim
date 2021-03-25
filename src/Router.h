@@ -78,6 +78,8 @@ SC_MODULE(Router)
     void process();
     void rxProcess();		// The receiving process
     void txProcess();		// The transmitting process
+    void rxProcessPE(); // Special combinational rx function just for Router-PE communication : FM, not sure if this is the better way
+    void txProcessPE(); // Special combinational tx function just for Router PE communication : FM, not sure if this is the better way
     void perCycleUpdate();
     void configure(const int _id, const double _warm_up_time,
 		   const unsigned int _max_buffer_size,
@@ -88,7 +90,7 @@ SC_MODULE(Router)
     // Constructor
 
     SC_CTOR(Router) {
-        SC_METHOD(process);
+        SC_METHOD(process); // FM: Might be this one to be modified
         sensitive << reset;
         sensitive << clock.pos();
 

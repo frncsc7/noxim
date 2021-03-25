@@ -45,7 +45,8 @@ SC_MODULE(ProcessingElement)
     bool current_level_tx;	// Current level for Alternating Bit Protocol (ABP)
     queue < Packet > packet_queue;	// Local queue of packets
     bool transmittedAtPreviousCycle;	// Used for distributions with memory
-
+    // FM: added a register to count the number of packets generated in the packet queue of the PE
+    int n_packets;
     // Functions
     void rxProcess();		// The receiving process
     void txProcess();		// The transmitting process

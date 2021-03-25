@@ -35,25 +35,32 @@ void ProcessingElement::txProcess()
     if (reset.read()) {
 	req_tx.write(0);
 	current_level_tx = 0;
+    n_packets = 0;
 	transmittedAtPreviousCycle = false;
     } else {
-	Packet packet;
-
-	if (canShot(packet)) {
-	    packet_queue.push(packet);
-	    transmittedAtPreviousCycle = true;
-	} else
-	    transmittedAtPreviousCycle = false;
-
-
-	if (ack_tx.read() == current_level_tx) {
-	    if (!packet_queue.empty()) {
-		Flit flit = nextFlit();	// Generate a new flit
-		flit_tx->write(flit);	// Send the generated flit
-		current_level_tx = 1 - current_level_tx;	// Negate the old value for Alternating Bit Protocol (ABP)
-		req_tx.write(current_level_tx);
-	    }
-	}
+	   Packet packet;
+	   if (canShot(packet)) {
+            //LOG << "Function canShot returned true" << endl; // FM
+	       packet_queue.push(packet);
+           n_packets = n_packets + 1;
+           LOG << "Currently, " << n_packets << " packets have been generated" << endl;
+	       transmittedAtPreviousCycle = true;
+	   } else {
+	       transmittedAtPreviousCycle = false;
+            //LOG << "Function canShot returned false, not sending anything!!" << endl; // FM
+        }
+        //LOG << "Ack_tx = " << ack_tx.read() << endl; // FM
+        //LOG << "current_level_tx = " << current_level_tx << endl; // FM
+	   if (ack_tx.read() == current_level_tx) {
+        //LOG << "Received ack on the current level tx!" << endl; // FM
+	       if (!packet_queue.empty()) {
+               //LOG << "Generating a new flit" << endl; // FM
+	   	       Flit flit = nextFlit();	// Generate a new flit
+	   	       flit_tx->write(flit);	// Send the generated flit
+	   	       current_level_tx = 1 - current_level_tx;	// Negate the old value for Alternating Bit Protocol (ABP)
+	   	       req_tx.write(current_level_tx);
+	        }
+	   }
     }
 }
 
@@ -142,38 +149,45 @@ bool ProcessingElement::canShot(Packet & packet)
     double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
 
     if (GlobalParams::traffic_distribution != TRAFFIC_TABLE_BASED) {
-	if (!transmittedAtPreviousCycle)
-	    threshold = GlobalParams::packet_injection_rate;
-	else
-	    threshold = GlobalParams::probability_of_retransmission;
-
-	shot = (((double) rand()) / RAND_MAX < threshold);
-	if (shot) {
-	    if (GlobalParams::traffic_distribution == TRAFFIC_RANDOM)
-		    packet = trafficRandom();
-        else if (GlobalParams::traffic_distribution == TRAFFIC_TRANSPOSE1)
-		    packet = trafficTranspose1();
-        else if (GlobalParams::traffic_distribution == TRAFFIC_TRANSPOSE2) {
-            //cout << "Inside ProcessingElement.cpp, traffic is transpose" << endl;
-    		packet = trafficTranspose2();
-        }
-        else if (GlobalParams::traffic_distribution == TRAFFIC_BIT_REVERSAL)
-		    packet = trafficBitReversal();
-        else if (GlobalParams::traffic_distribution == TRAFFIC_SHUFFLE)
-		    packet = trafficShuffle();
-        else if (GlobalParams::traffic_distribution == TRAFFIC_BUTTERFLY)
-		    packet = trafficButterfly();
-        else if (GlobalParams::traffic_distribution == TRAFFIC_LOCAL)
-		    packet = trafficLocal();
-        else if (GlobalParams::traffic_distribution == TRAFFIC_ULOCAL)
-		    packet = trafficULocal();
-        else if (GlobalParams::traffic_distribution == TRAFFIC_SLIDEUP)
-            packet = trafficSlideUp();
+        if (GlobalParams::topology == TOPOLOGY_RING)
+            threshold = GlobalParams::packet_injection_rate;
         else {
-            cout << "Invalid traffic distribution: " << GlobalParams::traffic_distribution << endl;
-            exit(-1);
+            if (!transmittedAtPreviousCycle) {
+                LOG << "Didn't transmit at previous cycle" << endl; // FM
+                threshold = GlobalParams::packet_injection_rate;
+            }
+            else {
+                LOG << "Transmitted at previous cycle" << endl; // FM
+                threshold = GlobalParams::probability_of_retransmission;
+            }
         }
-	}
+    	shot = (((double) rand()) / RAND_MAX < threshold);
+    	if (shot) {
+    	    if (GlobalParams::traffic_distribution == TRAFFIC_RANDOM)
+    		    packet = trafficRandom();
+            else if (GlobalParams::traffic_distribution == TRAFFIC_TRANSPOSE1)
+    		    packet = trafficTranspose1();
+            else if (GlobalParams::traffic_distribution == TRAFFIC_TRANSPOSE2) {
+                //cout << "Inside ProcessingElement.cpp, traffic is transpose" << endl;
+        		packet = trafficTranspose2();
+            }
+            else if (GlobalParams::traffic_distribution == TRAFFIC_BIT_REVERSAL)
+    		    packet = trafficBitReversal();
+            else if (GlobalParams::traffic_distribution == TRAFFIC_SHUFFLE)
+    		    packet = trafficShuffle();
+            else if (GlobalParams::traffic_distribution == TRAFFIC_BUTTERFLY)
+    		    packet = trafficButterfly();
+            else if (GlobalParams::traffic_distribution == TRAFFIC_LOCAL)
+    		    packet = trafficLocal();
+            else if (GlobalParams::traffic_distribution == TRAFFIC_ULOCAL)
+    		    packet = trafficULocal();
+            else if (GlobalParams::traffic_distribution == TRAFFIC_SLIDEUP)
+                packet = trafficSlideUp();
+            else {
+                cout << "Invalid traffic distribution: " << GlobalParams::traffic_distribution << endl;
+                exit(-1);
+            }
+        }
     } else {			// Table based communication traffic
 	if (never_transmit)
 	    return false;

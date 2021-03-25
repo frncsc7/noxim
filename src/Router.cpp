@@ -45,7 +45,7 @@ void Router::rxProcess()
         // 1) there is an incoming request
         // 2) there is a free slot in the input buffer of direction i
         //LOG<<"****RX****DIRECTION ="<<i<<  endl;
-
+      //LOG << "req_rx[" << i << "] = " << req_rx[i].read() << " current_level_rx[" << i <<"] = " << current_level_rx[i] << endl; //FM
         if (req_rx[i].read() == 1 - current_level_rx[i])
         { 
         Flit received_flit = flit_rx[i].read();
@@ -59,7 +59,7 @@ void Router::rxProcess()
             // Store the incoming flit in the circular buffer
             //std::cout << "Flit stored as buffer wasn't full" << endl;
             buffer[i][vc].Push(received_flit);
-            LOG << " Flit " << received_flit << " collected from Input[" << i << "][" << vc <<"]" << endl;
+            //LOG << " Flit " << received_flit << " collected from Input[" << i << "][" << vc <<"]" << endl;
 
             power.bufferRouterPush();
 
@@ -76,11 +76,12 @@ void Router::rxProcess()
         {
             // should not happen with the new TBufferFullStatus control signals    
             // except for flit coming from local PE, which don't use it 
-            LOG << " Flit " << received_flit << " buffer full Input[" << i << "][" << vc <<"]" << endl;
+            //LOG << " Flit " << received_flit << " buffer full Input[" << i << "][" << vc <<"]" << endl;
             assert(i== DIRECTION_LOCAL);
         }
 
         }
+        //LOG << "Writing current_level_rx[i] = " << current_level_rx[i] << " for ack_rx direction " << i << endl; FM
         ack_rx[i].write(current_level_rx[i]);
         // updates the mask of VCs to prevent incoming data on full buffers
         TBufferFullStatus bfs;
@@ -156,20 +157,20 @@ void Router::txProcess()
 
               if (rt_status == RT_AVAILABLE) 
               {
-              LOG << " reserving direction " << o << " for flit " << flit << endl;
+              //LOG << " reserving direction " << o << " for flit " << flit << endl;
               reservation_table.reserve(r, o);
               }
               else if (rt_status == RT_ALREADY_SAME)
               {
-              LOG << " RT_ALREADY_SAME reserved direction " << o << " for flit " << flit << endl;
+              //LOG << " RT_ALREADY_SAME reserved direction " << o << " for flit " << flit << endl;
               }
               else if (rt_status == RT_OUTVC_BUSY)
               {
-              LOG << " RT_OUTVC_BUSY reservation direction " << o << " for flit " << flit << endl;
+              //LOG << " RT_OUTVC_BUSY reservation direction " << o << " for flit " << flit << endl;
               }
               else if (rt_status == RT_ALREADY_OTHER_OUT)
               {
-              LOG  << "RT_ALREADY_OTHER_OUT: another output previously reserved for the same flit " << endl;
+              //LOG  << "RT_ALREADY_OTHER_OUT: another output previously reserved for the same flit " << endl;
               }
               else {
                 assert(false); // no meaningful status here
@@ -196,7 +197,7 @@ void Router::txProcess()
 
           int o = reservations[rnd_idx].first;
           int vc = reservations[rnd_idx].second;
-          LOG<< "found reservation from input= " << i << "_to output= "<<o<<endl; // FM: Uncomment
+          //LOG<< "found reservation from input= " << i << "_to output= "<<o<<endl; // FM: Uncomment
           // can happen
           if (!buffer[i][vc].IsEmpty())  
           {
@@ -206,13 +207,13 @@ void Router::txProcess()
           //LOG<<"_cl_tx="<<current_level_tx[o]<<"req_tx="<<req_tx[o].read()<<" _ack= "<<ack_tx[o].read()<< endl;  // FM: Uncomment
           if ((buffer_full_status_tx[o].read().mask[vc] == false))
           {
-            LOG << "Buffer tx for direction " << o << " is not full" << endl;
+            //LOG << "Buffer tx for direction " << o << " is not full" << endl;
           }
           if ( (current_level_tx[o] == ack_tx[o].read()) &&
                (buffer_full_status_tx[o].read().mask[vc] == false) ) 
           {
               //if (GlobalParams::verbose_mode > VERBOSE_OFF) 
-              LOG << "Input[" << i << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit << endl;
+              //LOG << "Input[" << i << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit << endl;
 
               flit_tx[o].write(flit);
               current_level_tx[o] = 1 - current_level_tx[o];
@@ -260,9 +261,9 @@ void Router::txProcess()
           }
           else
           {
-              LOG << " Cannot forward Input[" << i << "][" << vc << "] to Output[" << o << "], flit: " << flit << endl;
+              //LOG << " Cannot forward Input[" << i << "][" << vc << "] to Output[" << o << "], flit: " << flit << endl;
               //LOG << " **DEBUG APB: current_level_tx: " << current_level_tx[o] << " ack_tx: " << ack_tx[o].read() << endl;
-              LOG << " **DEBUG buffer_full_status_tx " << buffer_full_status_tx[o].read().mask[vc] << endl;
+              //LOG << " **DEBUG buffer_full_status_tx " << buffer_full_status_tx[o].read().mask[vc] << endl;
 
             //LOG<<"END_NO_cl_tx="<<current_level_tx[o]<<"_req_tx="<<req_tx[o].read()<<" _ack= "<<ack_tx[o].read()<< endl;
               /*
