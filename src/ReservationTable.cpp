@@ -85,6 +85,7 @@ int ReservationTable::checkReservation(const TReservation r, const int port_out)
 	if (rtable[port_out].reservations[i].input != r.input &&
 	    rtable[port_out].reservations[i].vc == r.vc) {
         //std::cout << "RT OUTVC BUSY" << endl; // FM: Inside checkReservation
+        std::cout << "ReservationTable.cpp: the VC has been reserved by input " << rtable[port_out].reservations[i].input << endl;
 	    return RT_OUTVC_BUSY;
     }
     }

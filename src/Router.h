@@ -72,13 +72,13 @@ SC_MODULE(Router)
     unsigned long routed_flits;
     RoutingAlgorithm * routingAlgorithm; 
     SelectionStrategy * selectionStrategy; 
-    sc_signal <bool> req_PE;
+    sc_signal <bool> req_PE; // FM
+    Flit flit_PE; // FM
     // Functions
 
     void process();
     void rxProcess();		// The receiving process
     void txProcess();		// The transmitting process
-    void rxProcessPE(); // Special combinational rx function just for Router-PE communication : FM, not sure if this is the better way
     void perCycleUpdate();
     void configure(const int _id, const double _warm_up_time,
 		   const unsigned int _max_buffer_size,
@@ -94,10 +94,6 @@ SC_MODULE(Router)
         sensitive << clock.pos();
 
         SC_METHOD(perCycleUpdate);
-        sensitive << reset;
-        sensitive << clock.pos();
-
-        SC_METHOD(rxProcessPE);
         sensitive << reset;
         sensitive << clock.pos();
 
