@@ -74,6 +74,8 @@ SC_MODULE(Router)
     SelectionStrategy * selectionStrategy; 
     sc_signal <bool> req_PE; // FM
     Flit flit_PE; // FM
+    sc_signal <bool> req_ring[DIRECTIONS]; // FM: It has the dimension of DIRECTIONS due to the current router implementation
+    Flit flit_ring[DIRECTIONS]; // FM: This should be the packet getting inside a router and currently present in the ring
     // Functions
 
     void process();
