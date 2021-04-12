@@ -27,17 +27,19 @@ SC_MODULE(ProcessingElement)
     sc_in_clk clock;		// The input clock for the PE
     sc_in < bool > reset;	// The reset signal for the PE
 
-    sc_in < Flit > flit_rx;	// The input channel
-    sc_in < bool > req_rx;	// The request associated with the input channel
-    sc_out < bool > ack_rx;	// The outgoing ack signal associated with the input channel
-    sc_out < TBufferFullStatus > buffer_full_status_rx;	
+    sc_in < Flit > flit_rx_i;	// The input channel
+    sc_in < bool > req_rx_i;	// The request associated with the input channel
+    sc_out < bool > ack_rx_o;	// The outgoing ack signal associated with the input channel
+    sc_out < TBufferFullStatus > buffer_full_status_rx_o;	
 
-    sc_out < Flit > flit_tx;	// The output channel
-    sc_out < bool > req_tx;	// The request associated with the output channel
-    sc_in < bool > ack_tx;	// The outgoing ack signal associated with the output channel
-    sc_in < TBufferFullStatus > buffer_full_status_tx;
+    sc_out < Flit > flit_tx_o;	// The output channel
+    sc_out < bool > req_tx_o;	// The request associated with the output channel
+    sc_in < bool > ack_tx_i;	// The outgoing ack signal associated with the output channel
+    sc_in < TBufferFullStatus > buffer_full_status_tx_i;
 
-    sc_in < int >free_slots_neighbor;
+    sc_in < int >free_slots_neighbor_i;
+
+    sc_in <bool> busy_i;
 
     // Registers
     int local_id;		// Unique identification number

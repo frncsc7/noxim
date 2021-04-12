@@ -70,6 +70,7 @@ SC_MODULE(Tile)
     sc_signal <bool> ack_tx_local;
     sc_signal <TBufferFullStatus> buffer_full_status_tx_local;
 
+    sc_signal <bool> busy_router;
 
     // Instances
     Router *r;		                // Router instance
@@ -85,15 +86,15 @@ SC_MODULE(Tile)
 	r->clock(clock);
 	r->reset(reset);
 	for (int i = 0; i < DIRECTIONS; i++) {
-	    r->flit_rx[i] (flit_rx[i]);
-	    r->req_rx[i] (req_rx[i]);
-	    r->ack_rx[i] (ack_rx[i]);
-	    r->buffer_full_status_rx[i](buffer_full_status_rx[i]);
+	    r->flit_rx_i[i] (flit_rx[i]);
+	    r->req_rx_i[i] (req_rx[i]);
+	    r->ack_rx_o[i] (ack_rx[i]);
+	    r->buffer_full_status_rx_o[i](buffer_full_status_rx[i]);
 
-	    r->flit_tx[i] (flit_tx[i]);
-	    r->req_tx[i] (req_tx[i]);
-	    r->ack_tx[i] (ack_tx[i]);
-	    r->buffer_full_status_tx[i](buffer_full_status_tx[i]);
+	    r->flit_tx_o[i] (flit_tx[i]);
+	    r->req_tx_o[i] (req_tx[i]);
+	    r->ack_tx_i[i] (ack_tx[i]);
+	    r->buffer_full_status_tx_i[i](buffer_full_status_tx[i]);
 
 	    r->free_slots[i] (free_slots[i]);
 	    r->free_slots_neighbor[i] (free_slots_neighbor[i]);
@@ -104,50 +105,52 @@ SC_MODULE(Tile)
 	}
 	
 	// local
-	r->flit_rx[DIRECTION_LOCAL] (flit_tx_local);
-	r->req_rx[DIRECTION_LOCAL] (req_tx_local);
-	r->ack_rx[DIRECTION_LOCAL] (ack_tx_local);
-	r->buffer_full_status_rx[DIRECTION_LOCAL] (buffer_full_status_tx_local);
+	r->flit_rx_i[DIRECTION_LOCAL] (flit_tx_local);
+	r->req_rx_i[DIRECTION_LOCAL] (req_tx_local);
+	r->ack_rx_o[DIRECTION_LOCAL] (ack_tx_local);
+	r->buffer_full_status_rx_o[DIRECTION_LOCAL] (buffer_full_status_tx_local);
 
-	r->flit_tx[DIRECTION_LOCAL] (flit_rx_local);
-	r->req_tx[DIRECTION_LOCAL] (req_rx_local);
-	r->ack_tx[DIRECTION_LOCAL] (ack_rx_local);
-	r->buffer_full_status_tx[DIRECTION_LOCAL] (buffer_full_status_rx_local);
+	r->flit_tx_o[DIRECTION_LOCAL] (flit_rx_local);
+	r->req_tx_o[DIRECTION_LOCAL] (req_rx_local);
+	r->ack_tx_i[DIRECTION_LOCAL] (ack_rx_local);
+	r->buffer_full_status_tx_i[DIRECTION_LOCAL] (buffer_full_status_rx_local);
 
 
 	// hub related
-	r->flit_rx[DIRECTION_HUB] (hub_flit_rx);
-	r->req_rx[DIRECTION_HUB] (hub_req_rx);
-	r->ack_rx[DIRECTION_HUB] (hub_ack_rx);
-	r->buffer_full_status_rx[DIRECTION_HUB] (hub_buffer_full_status_rx);
+	r->flit_rx_i[DIRECTION_HUB] (hub_flit_rx);
+	r->req_rx_i[DIRECTION_HUB] (hub_req_rx);
+	r->ack_rx_o[DIRECTION_HUB] (hub_ack_rx);
+	r->buffer_full_status_rx_o[DIRECTION_HUB] (hub_buffer_full_status_rx);
 
-	r->flit_tx[DIRECTION_HUB] (hub_flit_tx);
-	r->req_tx[DIRECTION_HUB] (hub_req_tx);
-	r->ack_tx[DIRECTION_HUB] (hub_ack_tx);
-	r->buffer_full_status_tx[DIRECTION_HUB] (hub_buffer_full_status_tx);
+	r->flit_tx_o[DIRECTION_HUB] (hub_flit_tx);
+	r->req_tx_o[DIRECTION_HUB] (hub_req_tx);
+	r->ack_tx_i[DIRECTION_HUB] (hub_ack_tx);
+	r->buffer_full_status_tx_i[DIRECTION_HUB] (hub_buffer_full_status_tx);
 
+    r->busy_o(busy_router);
 
 	// Processing Element pin assignments
 	pe = new ProcessingElement("ProcessingElement");
 	pe->clock(clock);
 	pe->reset(reset);
 
-	pe->flit_rx(flit_rx_local);
-	pe->req_rx(req_rx_local);
-	pe->ack_rx(ack_rx_local);
-	pe->buffer_full_status_rx(buffer_full_status_rx_local);
+	pe->flit_rx_i(flit_rx_local);
+	pe->req_rx_i(req_rx_local);
+	pe->ack_rx_o(ack_rx_local);
+	pe->buffer_full_status_rx_o(buffer_full_status_rx_local);
 	
 
-	pe->flit_tx(flit_tx_local);
-	pe->req_tx(req_tx_local);
-	pe->ack_tx(ack_tx_local);
-	pe->buffer_full_status_tx(buffer_full_status_tx_local);
+	pe->flit_tx_o(flit_tx_local);
+	pe->req_tx_o(req_tx_local);
+	pe->ack_tx_i(ack_tx_local);
+	pe->buffer_full_status_tx_i(buffer_full_status_tx_local);
 
+    pe->busy_i(busy_router);
 	// NoP
 	//
 	r->free_slots[DIRECTION_LOCAL] (free_slots_local);
 	r->free_slots_neighbor[DIRECTION_LOCAL] (free_slots_neighbor_local);
-	pe->free_slots_neighbor(free_slots_neighbor_local);
+	pe->free_slots_neighbor_i(free_slots_neighbor_local);
 
     }
 

@@ -19,21 +19,21 @@ int ProcessingElement::randInt(int min, int max)
 void ProcessingElement::rxProcess()
 {
     if (reset.read()) {
-	ack_rx.write(0);
+	ack_rx_o.write(0);
 	current_level_rx = 0;
     } else {
-	if (req_rx.read() == 1 - current_level_rx) {
-	    Flit flit_tmp = flit_rx.read();
+	if (req_rx_i.read() == 1 - current_level_rx) {
+	    Flit flit_tmp = flit_rx_i.read();
 	    current_level_rx = 1 - current_level_rx;	// Negate the old value for Alternating Bit Protocol (ABP)
 	}
-	ack_rx.write(current_level_rx);
+	ack_rx_o.write(current_level_rx);
     }
 }
 
 void ProcessingElement::txProcess()
 {
     if (reset.read()) {
-	req_tx.write(0);
+	req_tx_o.write(0);
 	current_level_tx = 0;
     n_packets = 0;
 	transmittedAtPreviousCycle = false;
@@ -49,16 +49,16 @@ void ProcessingElement::txProcess()
 	       transmittedAtPreviousCycle = false;
             //LOG << "Function canShot returned false, not sending anything!!" << endl; // FM
         }
-        //LOG << "Ack_tx = " << ack_tx.read() << endl; // FM
-        //LOG << "current_level_tx = " << current_level_tx << endl; // FM
-	   if (ack_tx.read() == current_level_tx) {
+        LOG << "Ack_tx_i = " << ack_tx_i.read() << endl; // FM
+        LOG << "current_level_tx = " << current_level_tx << endl; // FM
+	   if ((ack_tx_i.read() == current_level_tx) && (busy_i.read() == 0)) { // ADD A CONDITION HERE?
         //LOG << "Received ack on the current level tx!" << endl; // FM
 	       if (!packet_queue.empty()) {
-               //LOG << "Generating a new flit" << endl; // FM
+               LOG << "Popping a new flit" << endl; // FM
 	   	       Flit flit = nextFlit();	// Generate a new flit
-	   	       flit_tx->write(flit);	// Send the generated flit
+	   	       flit_tx_o->write(flit);	// Send the generated flit
 	   	       current_level_tx = 1 - current_level_tx;	// Negate the old value for Alternating Bit Protocol (ABP)
-	   	       req_tx.write(current_level_tx);
+	   	       req_tx_o.write(current_level_tx);
 	        }
 	   }
     }
