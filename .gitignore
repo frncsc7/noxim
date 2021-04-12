@@ -1,0 +1,8 @@
+bin/build/
+bin/libs/
+bin/mesh_log.txt
+bin/noxim
+bin/ring_log.txt
+bin/ring_log_old.txt
+src/routingAlgorithms/Routing_PIZZA.cpp
+src/routingAlgorithms/Routing_PIZZA.h
