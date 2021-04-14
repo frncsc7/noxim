@@ -49,6 +49,7 @@ void Router::ring_state()
 void Router::rxProcess()
 {
   int input_reqs;
+  int captured_reqs;
     if (reset.read()) {
     TBufferFullStatus bfs;
     // Clear outputs and indexes of receiving protocol
@@ -61,6 +62,7 @@ void Router::rxProcess()
     local_drained = 0;
     req_PE.write(0);
     input_reqs = 0;
+    captured_reqs = 0;
     for (int i = 0; i < DIRECTIONS; ++i) {
       req_ring[i].write(0);
     }
@@ -80,11 +82,15 @@ void Router::rxProcess()
         //}
         //else { // FM: Flit comes from the local PE
         input_reqs = 0;
+        captured_reqs = 0;
         for (int i = 0; i < DIRECTIONS; ++i) { // FM: ToDo: Make something not to loose one cycle when the packet arrives to the destination
           if (req_rx_i[i].read() == 1 - current_level_rx[i]) /*|| !buffer[i][0].IsEmpty())*/ {
             Flit received_flit = flit_rx_i[i].read();
             int vc = received_flit.vc_id;
             input_reqs = input_reqs + 1;
+            if (received_flit.dst_id == local_id) {
+              captured_reqs = captured_reqs + 1;
+            }
             LOG << " Flit " << received_flit << " collected from Input[" << i << "][" << vc <<"]" << endl;
             req_ring[i].write(1); // For the unidirectional ring, only one rx request per router will be set
             current_level_rx[i] = 1 - current_level_rx[i];
@@ -96,6 +102,9 @@ void Router::rxProcess()
           ack_rx_o[i].write(current_level_rx[i]);
           //LOG << "current_level_rx[" << i << "]= " << current_level_rx[i] << endl;
           //LOG << "req_rx[" << i << "]= " << req_rx_i[i] << endl;
+        }
+        if (captured_reqs > 0) {
+          LOG << "There is one packet reaching the corresponding Router (" << local_id << ")" << endl;
         }
           //LOG << "req_rx[DIRECTION_LOCAL]= " << req_rx_i[DIRECTION_LOCAL] << endl;
           //LOG << "current_level_rx[DIRECTION_LOCAL]= " << current_level_rx[DIRECTION_LOCAL] << endl;

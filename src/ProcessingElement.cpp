@@ -49,12 +49,12 @@ void ProcessingElement::txProcess()
 	       transmittedAtPreviousCycle = false;
             //LOG << "Function canShot returned false, not sending anything!!" << endl; // FM
         }
-        LOG << "Ack_tx_i = " << ack_tx_i.read() << endl; // FM
-        LOG << "current_level_tx = " << current_level_tx << endl; // FM
+        //LOG << "Ack_tx_i = " << ack_tx_i.read() << endl; // FM
+        //LOG << "current_level_tx = " << current_level_tx << endl; // FM
 	   if ((ack_tx_i.read() == current_level_tx) && (busy_i.read() == 0)) { // ADD A CONDITION HERE?
         //LOG << "Received ack on the current level tx!" << endl; // FM
 	       if (!packet_queue.empty()) {
-               LOG << "Popping a new flit" << endl; // FM
+               //LOG << "Popping a new flit" << endl; // FM
 	   	       Flit flit = nextFlit();	// Generate a new flit
 	   	       flit_tx_o->write(flit);	// Send the generated flit
 	   	       current_level_tx = 1 - current_level_tx;	// Negate the old value for Alternating Bit Protocol (ABP)

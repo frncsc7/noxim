@@ -103,11 +103,11 @@ SC_MODULE(Router)
         sensitive << clock.pos();
 
         SC_METHOD(ring_state);
-        sensitive << req_PE;
-        sensitive << req_ring[0];
-        sensitive << req_ring[1];
-        sensitive << req_ring[2];
-        sensitive << req_ring[3];
+        // sensitive << req_PE;
+        // sensitive << req_ring[0]; // FM: ToDo, improve this
+        // sensitive << req_ring[1];
+        // sensitive << req_ring[2];
+        // sensitive << req_ring[3];
 
         routingAlgorithm = RoutingAlgorithms::get(GlobalParams::routing_algorithm);
 
