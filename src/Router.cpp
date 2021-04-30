@@ -106,10 +106,11 @@ void Router::rxProcess()
         if (captured_reqs > 0) {
           LOG << "There is one packet reaching the corresponding Router (" << local_id << ")" << endl;
         }
+        LOG << "Input Reqs = " << input_reqs << endl;
           //LOG << "req_rx[DIRECTION_LOCAL]= " << req_rx_i[DIRECTION_LOCAL] << endl;
           //LOG << "current_level_rx[DIRECTION_LOCAL]= " << current_level_rx[DIRECTION_LOCAL] << endl;
           if ((req_rx_i[DIRECTION_LOCAL].read() == 1 - current_level_rx[DIRECTION_LOCAL]) || (req_PE.read() == 1)) {
-            if ((input_reqs > 0) || (req_PE.read() == 1)) {
+            if ((input_reqs > 0) || (req_PE.read() == 1) || tx_inflight) {
               req_PE.write(0);
               input_reqs = 0;
             }
@@ -177,6 +178,7 @@ void Router::txProcess()
     for (int i = 0; i < DIRECTIONS + 2; i++) {
       req_tx_o[i].write(0);
       current_level_tx[i] = 0;
+      tx_inflight = false;
     }
   }
   else {
@@ -184,6 +186,7 @@ void Router::txProcess()
       //LOG << "Req_PE = " << req_PE.read() << endl;
       //for (int i = 0; i < DIRECTIONS; i++)
         //LOG << "Req_Ring["<<i<<"]= " << req_ring[i].read() << endl;
+      tx_inflight = false;
       if (!req_PE.read()) { //FM: If already detected that the PE cannot send anything, then continue with the standard transmission
         // 1st phase: Reservation
         for (int i = 0; i < DIRECTIONS; i++) {
@@ -201,6 +204,7 @@ void Router::txProcess()
                 route_data.dst_id = flit.dst_id;
                 route_data.dir_in = i;
                 route_data.vc_id = flit.vc_id;
+                tx_inflight = tx_inflight | (req_ring[i].read() && (route_data.dst_id != local_id));
                 // TODO: see PER POSTERI (adaptive routing should not recompute route if already reserved)
                 int o = route(route_data);
                 //LOG << "Req_Ring["<<i<<"]= " << req_ring[i].read() << endl;
