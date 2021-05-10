@@ -13,7 +13,7 @@
 #   BUTTERFLY, BASELINE, and OMEGA are Delta Network topologies
 topology: RING
 bidirectionality: false # FM: When false, a unidirectional ring will be instantiated
-slide_offset: 3
+slide_offset: 1
 # X and Y mesh sizes
 mesh_dim_x: 4
 mesh_dim_y: 2 # FM: in reality, having a mesh and not a torus here creates a linear array, not a ring
@@ -123,7 +123,7 @@ reset_time: 1000
 # overal simulation lenght, expressed in cycles
 simulation_time: 15
 # collect stats after a given number of cycles
-stats_warm_up_time: 1
+stats_warm_up_time: 3
 # power breakdown, nodes communication details
 detailed: false
 # stop after a given amount of load has been processed

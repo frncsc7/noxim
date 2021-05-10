@@ -49,8 +49,9 @@ void ProcessingElement::txProcess()
 	       transmittedAtPreviousCycle = false;
             //LOG << "Function canShot returned false, not sending anything!!" << endl; // FM
         }
-        //LOG << "Ack_tx_i = " << ack_tx_i.read() << endl; // FM
-        //LOG << "current_level_tx = " << current_level_tx << endl; // FM
+        LOG << "Ack_tx_i = " << ack_tx_i.read() << endl; // FM
+        LOG << "current_level_tx = " << current_level_tx << endl; // FM
+        //LOG << "Busy = " << busy_i.read() << endl;
 	   if ((ack_tx_i.read() == current_level_tx) && (busy_i.read() == 0)) { // ADD A CONDITION HERE?
         //LOG << "Received ack on the current level tx!" << endl; // FM
 	       if (!packet_queue.empty()) {

@@ -85,6 +85,7 @@ SC_MODULE(Router)
     void rxProcess();		// The receiving process
     void txProcess();		// The transmitting process
     void ring_state();
+    void ringProcess();
     void perCycleUpdate();
     void configure(const int _id, const double _warm_up_time,
 		   const unsigned int _max_buffer_size,
