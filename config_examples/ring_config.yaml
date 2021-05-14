@@ -16,7 +16,7 @@ bidirectionality: false # FM: When false, a unidirectional ring will be instanti
 slide_offset: 1
 # X and Y mesh sizes
 mesh_dim_x: 4
-mesh_dim_y: 2 # FM: in reality, having a mesh and not a torus here creates a linear array, not a ring
+mesh_dim_y: 2 # FM: in reality, having a mesh and not a torus here creates a linear array, not a ring (if dim=1)
 # number of flits for each router buffer
 buffer_depth: 8
 # size of flits, in bits
@@ -121,7 +121,7 @@ clock_period_ps: 1000
 # duration of reset signal assertion, expressed in cycles
 reset_time: 1000
 # overal simulation lenght, expressed in cycles
-simulation_time: 15
+simulation_time: 100
 # collect stats after a given number of cycles
 stats_warm_up_time: 3
 # power breakdown, nodes communication details

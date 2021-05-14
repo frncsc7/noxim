@@ -79,14 +79,22 @@ vector<int> Routing_XY::route(Router * router, const RouteData & routeData)
                     //cout << "Destination=" << routeData.dst_id << " Source=" << routeData.current_id << endl;
                     if (routeData.current_id == GlobalParams::mesh_dim_x - 1)
                         directions.push_back(DIRECTION_SOUTH);
-                    else
-                        directions.push_back(DIRECTION_EAST);
+                    else {
+                        if(routeData.current_id == GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y -1)
+                            directions.push_back(DIRECTION_NORTH);
+                        else
+                            directions.push_back(DIRECTION_EAST);
+                    }
                 }
                 else {
                     if (routeData.current_id == GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y -1)
                         directions.push_back(DIRECTION_NORTH);
-                    else
-                        directions.push_back(DIRECTION_WEST);
+                    else {
+                        if (routeData.current_id == GlobalParams::mesh_dim_x - 1)
+                            directions.push_back(DIRECTION_SOUTH);
+                        else
+                            directions.push_back(DIRECTION_WEST);
+                    }
                 }
             }
         }

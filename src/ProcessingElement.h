@@ -50,8 +50,10 @@ SC_MODULE(ProcessingElement)
     // FM: added a register to count the number of packets generated in the packet queue of the PE
     int n_packets;
     // Functions
+    void process();
     void rxProcess();		// The receiving process
     void txProcess();		// The transmitting process
+    void ringProcess();
     bool canShot(Packet & packet);	// True when the packet must be shot
     Flit nextFlit();	// Take the next flit of the current packet
     Packet trafficTest();	// used for testing traffic
@@ -83,15 +85,10 @@ SC_MODULE(ProcessingElement)
 
     // Constructor
     SC_CTOR(ProcessingElement) {
-	SC_METHOD(rxProcess);
-	sensitive << reset;
-	sensitive << clock.pos();
-
-	SC_METHOD(txProcess);
-	sensitive << reset;
-	sensitive << clock.pos();
+        SC_METHOD(process);
+        sensitive << reset;
+        sensitive << clock.pos();
     }
-
 };
 
 #endif

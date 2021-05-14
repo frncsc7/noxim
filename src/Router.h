@@ -74,10 +74,7 @@ SC_MODULE(Router)
     unsigned long routed_flits;
     RoutingAlgorithm * routingAlgorithm; 
     SelectionStrategy * selectionStrategy; 
-    sc_signal <bool> req_PE; // FM
     Flit flit_PE; // FM
-    sc_signal <bool> req_ring[DIRECTIONS]; // FM: It has the dimension of DIRECTIONS due to the current router implementation
-    Flit flit_ring[DIRECTIONS]; // FM: This should be the packet getting inside a router and currently present in the ring
     bool tx_inflight;
     // Functions
 
@@ -105,11 +102,8 @@ SC_MODULE(Router)
         sensitive << clock.pos();
 
         SC_METHOD(ring_state);
-        // sensitive << req_PE;
-        // sensitive << req_ring[0]; // FM: ToDo, improve this
-        // sensitive << req_ring[1];
-        // sensitive << req_ring[2];
-        // sensitive << req_ring[3];
+        sensitive << reset;
+        sensitive << clock.pos();
 
         routingAlgorithm = RoutingAlgorithms::get(GlobalParams::routing_algorithm);
 

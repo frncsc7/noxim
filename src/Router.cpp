@@ -29,26 +29,36 @@ void Router::process()
 
 void Router::ring_state()
 {
-  int pending_reqs = 0;
-  int captured_reqs = 0;
-  if (GlobalParams::topology == TOPOLOGY_RING) {
-    for (int i = 0; i < DIRECTIONS; ++i) {
-      if ((req_ring[i].read() == 1) || (req_rx_i[i].read() == 1 - current_level_rx[i])) {
-        pending_reqs = pending_reqs + 1;
-        Flit received_flit = flit_rx_i[i].read();
-        if (received_flit.dst_id == local_id) {
-          captured_reqs = captured_reqs + 1;
+  int pending_reqs;
+  int captured_reqs;
+  if (reset.read()) {
+    pending_reqs = 0;
+    captured_reqs = 0;
+    busy_o.write(0);
+  }
+  else {
+    pending_reqs = 0;
+    captured_reqs = 0;
+    if (GlobalParams::topology == TOPOLOGY_RING) {
+      for (int i = 0; i < DIRECTIONS; ++i) {
+        if ((req_rx_i[i].read() == 1 - current_level_rx[i])) {
+          pending_reqs = pending_reqs + 1;
+          Flit received_flit = flit_rx_i[i].read();
+          if (received_flit.dst_id == local_id) {
+            captured_reqs = captured_reqs + 1;
+          }
         }
       }
-    }
-    if ((req_PE.read() == 1) || ((pending_reqs > 0) && (captured_reqs == 0))) {
-      busy_o.write(1);
+      //LOG << "Pending reqs = " << pending_reqs << " Captured reqs = " << captured_reqs << endl;
+      if ((pending_reqs > 0) && (captured_reqs == 0)) {
+        busy_o.write(1);
+      }
+      else
+        busy_o.write(0);
     }
     else
       busy_o.write(0);
   }
-  else
-    busy_o.write(0);
 }
 
 void Router::ringProcess() {
@@ -65,12 +75,8 @@ void Router::ringProcess() {
       current_level_rx[i] = 0;
       buffer_full_status_rx_o[i].write(bfs);
     }
-    req_PE.write(0);
     input_reqs = 0;
     captured_reqs = 0;
-    for (int i = 0; i < DIRECTIONS; ++i) {
-      req_ring[i].write(0);
-    }
   }
   else {
     tx_inflight = false;
@@ -178,6 +184,8 @@ void Router::ringProcess() {
       if ((int)(sc_time_stamp().to_double() / GlobalParams::clock_period_ps)%2==0)
         reservation_table.updateIndex();
     }
+    LOG<<"req_rx_i[DIRECTION_LOCAL]="<<req_rx_i[DIRECTION_LOCAL].read() << endl;
+    LOG<<"current_level_rx[DIRECTION_LOCAL]="<<current_level_rx[DIRECTION_LOCAL] << endl;
     if ((req_rx_i[DIRECTION_LOCAL].read() == 1 - current_level_rx[DIRECTION_LOCAL]) && !tx_inflight) { // Given priority to the in-flight packets
       LOG << "Tx from PE" << endl;
       LOG << "Get a packet from the PE packet_queue" << endl;
