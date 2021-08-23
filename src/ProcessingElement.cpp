@@ -28,44 +28,103 @@ void ProcessingElement::process() {
 
 void ProcessingElement::ringProcess() {
     if (reset.read()) {
-        ack_rx_o.write(0);
-        current_level_rx = 0;
-        req_tx_o.write(0);
-        current_level_tx = 0;
-        n_packets = 0;
-        transmittedAtPreviousCycle = false;
+        for (int k = 0; k < RINGS; ++k) {
+            ack_ring_rx_o[k].write(0);
+            ring_current_level_rx[k] = 0;
+            req_ring_tx_o[k].write(0);
+            ring_current_level_tx[k] = 0;
+            n_packets[k] = 0;
+            ring_transmittedAtPreviousCycle[k] = false;
+        }
     }
     else {
-        if (req_rx_i.read() == 1 - current_level_rx) {
-            Flit flit_tmp = flit_rx_i.read();
-            current_level_rx = 1 - current_level_rx;    // Negate the old value for Alternating Bit Protocol (ABP)
-        }
-        ack_rx_o.write(current_level_rx);
-        Packet packet;
-        if (canShot(packet)) {
-            packet_queue.push(packet);
-            n_packets = n_packets + 1;
-            //LOG << "Currently, " << n_packets << " packets have been generated" << endl;
-            transmittedAtPreviousCycle = true;
-        }
-        else {
-            transmittedAtPreviousCycle = false;
-        }
-        LOG << "Ack_tx_i = " << ack_tx_i.read() << endl; // FM
-        LOG << "current_level_tx = " << current_level_tx << endl; // FM
-        LOG << "Busy = " << busy_i.read() << endl; // FM
-        if ((ack_tx_i.read() == current_level_tx) && !(busy_i.read())) { // ADD A CONDITION HERE?
-            //LOG << "Received ack on the current level tx!" << endl; // FM
-            if (!packet_queue.empty()) {
-                //LOG << "Popping a new flit" << endl; // FM
-                Flit flit = nextFlit();  // Generate a new flit
-                flit_tx_o->write(flit);  // Send the generated flit
-                current_level_tx = 1 - current_level_tx; // Negate the old value for Alternating Bit Protocol (ABP)
-                req_tx_o.write(current_level_tx);
+        for (int k = 0; k < RINGS; ++k) {
+            if (req_ring_rx_i[k].read() == 1 - ring_current_level_rx[k]) {
+                Flit flit_tmp = flit_ring_rx_i[k].read();
+                ring_current_level_rx[k] = 1 - ring_current_level_rx[k];    // Negate the old value for Alternating Bit Protocol (ABP)
             }
-            else LOG << "Packet queue is empty";
+            ack_ring_rx_o[k].write(ring_current_level_rx[k]);
+            Packet packet;
+            if (canShot(packet)) {
+                ring_packet_queue[k].push(packet);
+                n_packets[k] = n_packets[k] + 1;
+                //LOG << "Currently, " << n_packets[k] << " packets have been generated" << endl;
+                ring_transmittedAtPreviousCycle[k] = true;
+            }
+            else {
+                ring_transmittedAtPreviousCycle[k] = false;
+            }
+            //LOG << "Ack_tx_i = " << ack_ring_tx_i[k].read() << endl; // FM
+            //LOG << "ring_current_level_tx[k] = " << ring_current_level_tx[k] << endl; // FM
+            //LOG << "Busy = " << ring_busy_i[k].read() << endl; // FM
+            if ((ack_ring_tx_i[k].read() == ring_current_level_tx[k]) && !(ring_busy_i[k].read())) { // ADD A CONDITION HERE?
+                //LOG << "Received ack on the current level tx!" << endl; // FM
+                if (!ring_packet_queue[k].empty()) {
+                    //LOG << "Popping a new flit" << endl; // FM
+                    Flit flit = nextringFlit(k);  // Generate a new flit
+                    flit_ring_tx_o[k]->write(flit);  // Send the generated flit
+                    ring_current_level_tx[k] = 1 - ring_current_level_tx[k]; // Negate the old value for Alternating Bit Protocol (ABP)
+                    req_ring_tx_o[k].write(ring_current_level_tx[k]);
+                }
+                else LOG << "Packet queue is empty";
+            }
         }
     }
+}
+
+Flit ProcessingElement::nextringFlit(int ring_id) // TODO: Update according to the double-ring
+{
+    Flit flit;
+    Packet packet = ring_packet_queue[ring_id].front();
+
+    flit.src_id = packet.src_id;
+    flit.dst_id = packet.dst_id;
+    flit.vc_id = packet.vc_id;
+    flit.timestamp = packet.timestamp;
+    flit.sequence_no = packet.size - packet.flit_left;
+    flit.sequence_length = packet.size;
+    if (!GlobalParams::bidirectionality) {
+        if (flit.src_id > flit.dst_id) {
+            flit.hop_no = (GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y) - flit.src_id + flit.dst_id;
+        }
+        else
+            flit.hop_no = flit.dst_id - flit.src_id;
+    }
+    else {
+        if (flit.src_id > flit.dst_id) {
+            if (flit.src_id - flit.dst_id > GlobalParams::mesh_dim_x) {
+                flit.hop_no = (GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y) - flit.src_id + flit.dst_id;
+            }
+            else {
+                flit.hop_no = flit.src_id - flit.dst_id;
+            }
+        }
+        else {
+            if (flit.src_id - flit.dst_id > GlobalParams::mesh_dim_x) {
+                flit.hop_no = (GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y) - flit.dst_id + flit.src_id;
+            }
+            else {
+                flit.hop_no = flit.dst_id - flit.src_id;
+            }
+        }
+    }
+
+    flit.hub_relay_node = NOT_VALID;
+
+    if (packet.size == packet.flit_left)
+    flit.flit_type = FLIT_TYPE_HEAD;
+    else if (packet.flit_left == 1)
+    flit.flit_type = FLIT_TYPE_TAIL;
+    else
+    flit.flit_type = FLIT_TYPE_BODY;
+
+    ring_packet_queue[ring_id].front().flit_left--;
+    if (ring_packet_queue[ring_id].front().flit_left == 0) {
+        //LOG << "Popping packet" << endl;
+        ring_packet_queue[ring_id].pop();
+    }
+
+    return flit;
 }
 
 void ProcessingElement::rxProcess()
@@ -87,15 +146,12 @@ void ProcessingElement::txProcess()
     if (reset.read()) {
 	req_tx_o.write(0);
 	current_level_tx = 0;
-    n_packets = 0;
 	transmittedAtPreviousCycle = false;
     } else {
 	   Packet packet;
 	   if (canShot(packet)) {
             //LOG << "Function canShot returned true" << endl; // FM
 	       packet_queue.push(packet);
-           n_packets = n_packets + 1;
-           //LOG << "Currently, " << n_packets << " packets have been generated" << endl;
 	       transmittedAtPreviousCycle = true;
 	   } else {
 	       transmittedAtPreviousCycle = false;
@@ -103,8 +159,7 @@ void ProcessingElement::txProcess()
         }
         //LOG << "Ack_tx_i = " << ack_tx_i.read() << endl; // FM
         //LOG << "current_level_tx = " << current_level_tx << endl; // FM
-        LOG << "Busy = " << busy_i.read() << endl; // FM
-	   if ((ack_tx_i.read() == current_level_tx) && !(busy_i.read())) { // ADD A CONDITION HERE?
+	   if ((ack_tx_i.read() == current_level_tx)) { // ADD A CONDITION HERE?
         //LOG << "Received ack on the current level tx!" << endl; // FM
 	       if (!packet_queue.empty()) {
                //LOG << "Popping a new flit" << endl; // FM

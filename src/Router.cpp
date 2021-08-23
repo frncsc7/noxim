@@ -29,225 +29,232 @@ void Router::process()
 
 void Router::ring_state()
 {
-  int pending_reqs;
-  int captured_reqs;
+  int pending_reqs[RINGS];
+  int captured_reqs[RINGS];
   if (reset.read()) {
-    pending_reqs = 0;
-    captured_reqs = 0;
-    busy_o.write(0);
+    for (int k = 0; k < RINGS; ++k) {
+      pending_reqs[k] = 0;
+      captured_reqs[k] = 0;
+      ring_busy_o[k].write(0);
+    }
   }
   else {
-    pending_reqs = 0;
-    captured_reqs = 0;
-    if (GlobalParams::topology == TOPOLOGY_RING) {
-      for (int i = 0; i < DIRECTIONS; ++i) {
-        if ((req_rx_i[i].read() == 1 - current_level_rx[i])) {
-          pending_reqs = pending_reqs + 1;
-          Flit received_flit = flit_rx_i[i].read();
-          if (received_flit.dst_id == local_id) {
-            captured_reqs = captured_reqs + 1;
+    for (int k = 0; k < RINGS; ++k) {
+      pending_reqs[k] = 0;
+      captured_reqs[k] = 0;
+      if (GlobalParams::topology == TOPOLOGY_RING) { // May be useless
+        for (int i = 0; i < DIRECTIONS; ++i) {
+          if ((req_rx_i[i].read() == 1 - current_level_rx[i])) {
+            pending_reqs[k] = pending_reqs[k] + 1;
+            Flit received_flit = flit_rx_i[i].read();
+            if (received_flit.dst_id == local_id) {
+              captured_reqs[k] = captured_reqs[k] + 1;
+            }
           }
         }
-      }
-      //LOG << "Pending reqs = " << pending_reqs << " Captured reqs = " << captured_reqs << endl;
-      if ((pending_reqs > 0) && (captured_reqs == 0)) {
-        busy_o.write(1);
+        //LOG << "Pending reqs = " << pending_reqs[k] << " Captured reqs = " << captured_reqs[k] << endl;
+        if ((pending_reqs[k] > 0) && (captured_reqs[k] == 0)) {
+          ring_busy_o[k].write(1);
+        }
+        else
+          ring_busy_o[k].write(0);
       }
       else
-        busy_o.write(0);
+        ring_busy_o[k].write(0);
     }
-    else
-      busy_o.write(0);
   }
 }
 
 void Router::ringProcess() {
-  int input_reqs;
-  int captured_reqs;
+  int input_reqs[RINGS];
+  int captured_reqs[RINGS];
   TBufferFullStatus bfs;
   if (reset.read()) {
     // Clear outputs and indexes of transmitting protocol
-    for (int i = 0; i < DIRECTIONS + 2; i++) {
-      req_tx_o[i].write(0);
-      current_level_tx[i] = 0;
-      tx_inflight = false;
-      ack_rx_o[i].write(0);
-      current_level_rx[i] = 0;
-      buffer_full_status_rx_o[i].write(bfs);
+    for (int k = 0; k < RINGS; ++k) {
+      for (int i = 0; i < DIRECTIONS + 2; i++) {
+        req_ring_tx_o[k][i].write(0);
+        ring_current_level_tx[k][i] = 0;
+        ring_tx_inflight[k] = false;
+        ack_ring_rx_o[k][i].write(0);
+        ring_current_level_rx[k][i] = 0;
+        buffer_full_status_ring_rx_o[k][i].write(bfs);
+      }
+      input_reqs[k] = 0;
+      captured_reqs[k] = 0;
     }
-    input_reqs = 0;
-    captured_reqs = 0;
   }
   else {
-    tx_inflight = false;
-    input_reqs = 0;
-    captured_reqs = 0;
-    // 1st phase: Reservation
-    Flit flit;
-    RouteData route_data;
-    for (int i = 0; i < DIRECTIONS; ++i) { // FM: ToDo: Make something not to loose one cycle when the packet arrives to the destination
-      if (req_rx_i[i].read() == 1 - current_level_rx[i]) {
-        flit = flit_rx_i[i].read();
-        route_data.dir_in = i;
-        input_reqs = input_reqs + 1;
+    for (int k = 0; k < RINGS; ++k) {
+      ring_tx_inflight[k] = false;
+      input_reqs[k] = 0;
+      captured_reqs[k] = 0;
+      // 1st phase: Reservation
+      Flit flit;
+      RouteData route_data;
+      for (int i = 0; i < DIRECTIONS; ++i) { // FM: ToDo: Make something not to loose one cycle when the packet arrives to the destination
+        if (req_ring_rx_i[k][i].read() == 1 - ring_current_level_rx[k][i]) {
+          flit = flit_ring_rx_i[k][i].read();
+          route_data.dir_in = i;
+          input_reqs[k] = input_reqs[k] + 1;
+        }
       }
-    }
-    if (input_reqs > 0) {
-      if (flit.dst_id == local_id)
-        captured_reqs = captured_reqs + 1;
-      // prepare data for routing
-      route_data.current_id = local_id;
-      //LOG<< "current_id= "<< route_data.current_id <<" for sending " << flit << endl; // FM: Uncommented
-      route_data.src_id = flit.src_id;
-      route_data.dst_id = flit.dst_id;
-      route_data.vc_id = flit.vc_id;
-      tx_inflight = tx_inflight | ((input_reqs > 0) && (route_data.dst_id != local_id));
-      int o = route(route_data);
-      TReservation r;
-      r.input = route_data.dir_in;
-      r.vc = 0; //FM: Using only one virtual channel
-      //LOG << " checking availability of Output[" << o << "] for Input[" << i << "][" << vc << "] flit " << flit << endl;
-      int rt_status = reservation_table.checkReservation(r,o);
-      if (rt_status == RT_AVAILABLE) {
-        LOG << " reserving direction " << o << " for flit " << flit << endl;
-        reservation_table.reserve(r, o);
+      if (input_reqs[k] > 0) {
+        if (flit.dst_id == local_id)
+          captured_reqs[k] = captured_reqs[k] + 1;
+        // prepare data for routing
+        route_data.current_id = local_id;
+        //LOG<< "current_id= "<< route_data.current_id <<" for sending " << flit << endl; // FM: Uncommented
+        route_data.src_id = flit.src_id;
+        route_data.dst_id = flit.dst_id;
+        route_data.vc_id = flit.vc_id;
+        ring_tx_inflight[k] = ring_tx_inflight[k] | ((input_reqs[k] > 0) && (route_data.dst_id != local_id));
+        int o = route(route_data);
+        TReservation r;
+        r.input = route_data.dir_in;
+        r.vc = 0; //FM: Using only one virtual channel
+        //LOG << " checking availability of Output[" << o << "] for Input[" << i << "][" << vc << "] flit " << flit << endl;
+        int rt_status = reservation_table.checkReservation(r,o);
+        if (rt_status == RT_AVAILABLE) {
+          LOG << " reserving direction " << o << " for flit " << flit << endl;
+          reservation_table.reserve(r, o);
+        }
+        else if (rt_status == RT_ALREADY_SAME) {
+          LOG << " RT_ALREADY_SAME reserved direction " << o << " for flit " << flit << endl;
+        }
+        else if (rt_status == RT_OUTVC_BUSY) {
+          LOG << " RT_OUTVC_BUSY reservation direction " << o << " for flit " << flit << endl;
+        }
+        else if (rt_status == RT_ALREADY_OTHER_OUT) {
+          LOG  << "RT_ALREADY_OTHER_OUT: another output previously reserved for the same flit " << endl;
+        }
+        else {
+          assert(false); // no meaningful status here
+          LOG  << "NO AVAILABILITY FOUND" << endl;
+        }
+        // 2nd phase: Forwarding
+        for (int i = 0; i < DIRECTIONS; i++) {
+          vector<pair<int,int> > reservations = reservation_table.getReservations(i);
+          if (reservations.size()!=0) {
+            int rnd_idx = rand()%reservations.size();
+            int o = reservations[rnd_idx].first;
+            int vc = reservations[rnd_idx].second;
+            if (req_ring_rx_i[k][i].read() == 1 - ring_current_level_rx[k][i]) {
+              ring_current_level_rx[k][i] = 1 - ring_current_level_rx[k][i];
+              ack_ring_rx_o[k][i].write(ring_current_level_rx[k][i]);
+              // power contribution already computed in 1st phase
+              //LOG<< "*****TX***Direction= "<<i<< "************"<<endl;  // FM: Uncomment
+              //LOG<<"cl_tx="<<current_level_tx[o]<<"req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;  // FM: Uncomment
+              LOG << "Input[" << i << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit << endl;
+              flit_ring_tx_o[k][o].write(flit);
+              ring_current_level_tx[k][o] = 1 - ring_current_level_tx[k][o];
+              req_tx_o[o].write(ring_current_level_tx[o]);
+              // FM: Double check this. The idea is to always free the reserved port in case the topology is a ring (#flits=#packets)
+              TReservation r;
+              r.input = i;
+              r.vc = vc;
+              reservation_table.release(r,o);
+              /* Power & Stats ------------------------------------------------- */
+              if (o == DIRECTION_HUB) power.r2hLink();
+              else power.r2rLink();
+              power.crossBar();
+              if (o == DIRECTION_LOCAL) { // FM: it seems it has to get into this block for consuming packets
+                power.networkInterface();
+                LOG << "Consumed flit " << flit << endl;
+                stats.receivedFlit(sc_time_stamp().to_double() / GlobalParams::clock_period_ps, flit);
+                if (GlobalParams:: max_volume_to_be_drained) {
+                  if (drained_volume >= GlobalParams:: max_volume_to_be_drained)
+                    sc_stop();
+                  else {
+                    drained_volume++;
+                    local_drained++;
+                  }
+                }
+              }
+              else if (i != DIRECTION_LOCAL) // not generated locally
+                routed_flits++;
+              /* End Power & Stats ------------------------------------------------- */
+              //LOG<<"END_OK_cl_tx="<<current_level_tx[o]<<"_req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;
+            }
+            else {
+              LOG << " Cannot forward Input[" << i << "][" << vc << "] to Output[" << o << "], flit: " << flit << endl;
+              //LOG << " **DEBUG APB: current_level_tx: " << current_level_tx[o] << " ack_tx_i: " << ack_tx_i[o].read() << endl;
+              //LOG << " **DEBUG buffer_full_status_tx_i " << buffer_full_status_tx_i[o].read().mask[vc] << endl;
+                //LOG<<"END_NO_cl_tx="<<current_level_tx[o]<<"_req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;
+                /*
+                if (flit.flit_type == FLIT_TYPE_HEAD)
+                reservation_table.release(i,flit.vc_id,o);
+                */
+            }
+          }
+        }
+        if ((int)(sc_time_stamp().to_double() / GlobalParams::clock_period_ps)%2==0)
+          reservation_table.updateIndex();
       }
-      else if (rt_status == RT_ALREADY_SAME) {
-        LOG << " RT_ALREADY_SAME reserved direction " << o << " for flit " << flit << endl;
-      }
-      else if (rt_status == RT_OUTVC_BUSY) {
-        LOG << " RT_OUTVC_BUSY reservation direction " << o << " for flit " << flit << endl;
-      }
-      else if (rt_status == RT_ALREADY_OTHER_OUT) {
-        LOG  << "RT_ALREADY_OTHER_OUT: another output previously reserved for the same flit " << endl;
-      }
-      else {
-        assert(false); // no meaningful status here
-        LOG  << "NO AVAILABILITY FOUND" << endl;
-      }
-      // 2nd phase: Forwarding
-      for (int i = 0; i < DIRECTIONS; i++) {
-        vector<pair<int,int> > reservations = reservation_table.getReservations(i);
+      //LOG<<"req_rx_i[" << k << "][DIRECTION_LOCAL]="<<req_ring_rx_i[k][DIRECTION_LOCAL].read() << endl;
+      //LOG<<"current_level_rx[" << k << "][DIRECTION_LOCAL]="<<current_level_rx[k][DIRECTION_LOCAL] << endl;
+      if ((req_ring_rx_i[k][DIRECTION_LOCAL].read() == 1 - ring_current_level_rx[k][DIRECTION_LOCAL]) && !ring_tx_inflight[k]) { // Given priority to the in-flight packets
+        //LOG << "Tx from PE" << endl;
+        //LOG << "Get a packet from the PE packet_queue" << endl;
+        flit_PE[k] = flit_ring_rx_i[k][DIRECTION_LOCAL];
+        ring_current_level_rx[k][DIRECTION_LOCAL] = 1 - ring_current_level_rx[k][DIRECTION_LOCAL];
+        ack_ring_rx_o[k][DIRECTION_LOCAL].write(ring_current_level_rx[k][DIRECTION_LOCAL]);
+        // prepare data for routing
+        RouteData route_data;
+        route_data.current_id = local_id;
+        //LOG<< "current_id= "<< route_data.current_id <<" for sending " << flit << endl; // FM: Uncommented
+        route_data.src_id = flit_PE[k].src_id;
+        route_data.dst_id = flit_PE[k].dst_id;
+        route_data.dir_in = DIRECTION_LOCAL;
+        route_data.vc_id = flit_PE[k].vc_id;
+        // TODO: see PER POSTERI (adaptive routing should not recompute route if already reserved)
+        int o = route(route_data);
+        TReservation r;
+        r.input = DIRECTION_LOCAL;
+        r.vc = 0;
+        //LOG << " checking availability of Output[" << o << "] for Input[" << i << "][" << vc << "] flit " << flit_PE << endl;
+        int rt_status = reservation_table.checkReservation(r,o);
+        if (rt_status == RT_AVAILABLE) {
+          //LOG << " reserving direction " << o << " for PE flit " << flit_PE[k] << endl;
+          reservation_table.reserve(r, o);
+        }
+        else if (rt_status == RT_ALREADY_SAME) {
+          LOG << " RT_ALREADY_SAME reserved direction " << o << " for flit " << flit_PE[k] << endl;
+        }
+        else if (rt_status == RT_OUTVC_BUSY) {
+          LOG << " RT_OUTVC_BUSY reservation direction " << o << " for flit " << flit_PE[k] << endl;
+        }
+        else if (rt_status == RT_ALREADY_OTHER_OUT) {
+          LOG  << "RT_ALREADY_OTHER_OUT: another output previously reserved for the same flit " << endl;
+        }
+        else {
+          assert(false); // no meaningful status here
+          LOG  << "NO AVAILABILITY FOUND" << endl; // FM
+        }
+        // 2nd Phase: reservation
+        vector<pair<int,int> > reservations = reservation_table.getReservations(DIRECTION_LOCAL);
         if (reservations.size()!=0) {
           int rnd_idx = rand()%reservations.size();
           int o = reservations[rnd_idx].first;
           int vc = reservations[rnd_idx].second;
-          if (req_rx_i[i].read() == 1 - current_level_rx[i]) {
-            current_level_rx[i] = 1 - current_level_rx[i];
-            ack_rx_o[i].write(current_level_rx[i]);
-            // power contribution already computed in 1st phase
-            //LOG<< "*****TX***Direction= "<<i<< "************"<<endl;  // FM: Uncomment
-            //LOG<<"cl_tx="<<current_level_tx[o]<<"req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;  // FM: Uncomment
-            LOG << "Input[" << i << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit << endl;
-            flit_tx_o[o].write(flit);
-            current_level_tx[o] = 1 - current_level_tx[o];
-            req_tx_o[o].write(current_level_tx[o]);
-            // FM: Double check this. The idea is to always free the reserved port in case the topology is a ring (#flits=#packets)
-            TReservation r;
-            r.input = i;
-            r.vc = vc;
-            reservation_table.release(r,o);
-            /* Power & Stats ------------------------------------------------- */
-            if (o == DIRECTION_HUB) power.r2hLink();
-            else power.r2rLink();
-            power.crossBar();
-            if (o == DIRECTION_LOCAL) { // FM: it seems it has to get into this block for consuming packets
-              power.networkInterface();
-              LOG << "Consumed flit " << flit << endl;
-              stats.receivedFlit(sc_time_stamp().to_double() / GlobalParams::clock_period_ps, flit);
-              if (GlobalParams:: max_volume_to_be_drained) {
-                if (drained_volume >= GlobalParams:: max_volume_to_be_drained)
-                  sc_stop();
-                else {
-                  drained_volume++;
-                  local_drained++;
-                }
-              }
-            }
-            else if (i != DIRECTION_LOCAL) // not generated locally
-              routed_flits++;
-            /* End Power & Stats ------------------------------------------------- */
-            //LOG<<"END_OK_cl_tx="<<current_level_tx[o]<<"_req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;
-          }
-          else {
-            LOG << " Cannot forward Input[" << i << "][" << vc << "] to Output[" << o << "], flit: " << flit << endl;
-            //LOG << " **DEBUG APB: current_level_tx: " << current_level_tx[o] << " ack_tx_i: " << ack_tx_i[o].read() << endl;
-            //LOG << " **DEBUG buffer_full_status_tx_i " << buffer_full_status_tx_i[o].read().mask[vc] << endl;
-              //LOG<<"END_NO_cl_tx="<<current_level_tx[o]<<"_req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;
-              /*
-              if (flit.flit_type == FLIT_TYPE_HEAD)
-              reservation_table.release(i,flit.vc_id,o);
-              */
-          }
+          //LOG<<"From PE : cl_tx="<<current_level_tx[o]<<"req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;  // FM: Uncomment
+          //LOG << "Input[" << DIRECTION_LOCAL << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit_PE[k] << endl;
+          flit_ring_tx_o[k][o].write(flit_PE[k]);
+          ring_current_level_tx[k][o] = 1 - ring_current_level_tx[k][o];
+          req_ring_tx_o[k][o].write(ring_current_level_tx[k][o]);
+          // FM: Double check this. The idea is to always free the reserved port in case the topology is a ring (#flits=#packets)
+          TReservation r;
+          r.input = DIRECTION_LOCAL;
+          r.vc = vc;
+          reservation_table.release(r,o); // If immediately released, actually it doesn't need any reservation
+         /* Power & Stats ------------------------------------------------- */
+         if (o == DIRECTION_HUB) power.r2hLink();
+          else power.r2rLink();
+          power.crossBar();
         }
+        if ((int)(sc_time_stamp().to_double() / GlobalParams::clock_period_ps)%2==0)
+          reservation_table.updateIndex();
       }
-      if ((int)(sc_time_stamp().to_double() / GlobalParams::clock_period_ps)%2==0)
-        reservation_table.updateIndex();
-    }
-    LOG<<"req_rx_i[DIRECTION_LOCAL]="<<req_rx_i[DIRECTION_LOCAL].read() << endl;
-    LOG<<"current_level_rx[DIRECTION_LOCAL]="<<current_level_rx[DIRECTION_LOCAL] << endl;
-    if ((req_rx_i[DIRECTION_LOCAL].read() == 1 - current_level_rx[DIRECTION_LOCAL]) && !tx_inflight) { // Given priority to the in-flight packets
-      LOG << "Tx from PE" << endl;
-      LOG << "Get a packet from the PE packet_queue" << endl;
-      flit_PE = flit_rx_i[DIRECTION_LOCAL];
-      current_level_rx[DIRECTION_LOCAL] = 1 - current_level_rx[DIRECTION_LOCAL];
-      ack_rx_o[DIRECTION_LOCAL].write(current_level_rx[DIRECTION_LOCAL]);
-      // prepare data for routing
-      flit_PE = flit_rx_i[DIRECTION_LOCAL];
-      RouteData route_data;
-      route_data.current_id = local_id;
-      //LOG<< "current_id= "<< route_data.current_id <<" for sending " << flit << endl; // FM: Uncommented
-      route_data.src_id = flit_PE.src_id;
-      route_data.dst_id = flit_PE.dst_id;
-      route_data.dir_in = DIRECTION_LOCAL;
-      route_data.vc_id = flit_PE.vc_id;
-      // TODO: see PER POSTERI (adaptive routing should not recompute route if already reserved)
-      int o = route(route_data);
-      TReservation r;
-      r.input = DIRECTION_LOCAL;
-      r.vc = 0;
-      //LOG << " checking availability of Output[" << o << "] for Input[" << i << "][" << vc << "] flit " << flit_PE << endl;
-      int rt_status = reservation_table.checkReservation(r,o);
-      if (rt_status == RT_AVAILABLE) {
-        LOG << " reserving direction " << o << " for PE flit " << flit_PE << endl;
-        reservation_table.reserve(r, o);
-      }
-      else if (rt_status == RT_ALREADY_SAME) {
-        LOG << " RT_ALREADY_SAME reserved direction " << o << " for flit " << flit_PE << endl;
-      }
-      else if (rt_status == RT_OUTVC_BUSY) {
-        LOG << " RT_OUTVC_BUSY reservation direction " << o << " for flit " << flit_PE << endl;
-      }
-      else if (rt_status == RT_ALREADY_OTHER_OUT) {
-        LOG  << "RT_ALREADY_OTHER_OUT: another output previously reserved for the same flit " << endl;
-      }
-      else {
-        assert(false); // no meaningful status here
-        LOG  << "NO AVAILABILITY FOUND" << endl; // FM
-      }
-      // 2nd Phase: reservation
-      vector<pair<int,int> > reservations = reservation_table.getReservations(DIRECTION_LOCAL);
-      if (reservations.size()!=0) {
-        int rnd_idx = rand()%reservations.size();
-        int o = reservations[rnd_idx].first;
-        int vc = reservations[rnd_idx].second;
-        //LOG<<"From PE : cl_tx="<<current_level_tx[o]<<"req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;  // FM: Uncomment
-        LOG << "Input[" << DIRECTION_LOCAL << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit_PE << endl;
-        flit_tx_o[o].write(flit_PE);
-        current_level_tx[o] = 1 - current_level_tx[o];
-        req_tx_o[o].write(current_level_tx[o]);
-        // FM: Double check this. The idea is to always free the reserved port in case the topology is a ring (#flits=#packets)
-        TReservation r;
-        r.input = DIRECTION_LOCAL;
-        r.vc = vc;
-        reservation_table.release(r,o); // If immediately released, actually it doesn't need any reservation
-       /* Power & Stats ------------------------------------------------- */
-       if (o == DIRECTION_HUB) power.r2hLink();
-        else power.r2rLink();
-        power.crossBar();
-      }
-      if ((int)(sc_time_stamp().to_double() / GlobalParams::clock_period_ps)%2==0)
-        reservation_table.updateIndex();
     }
   }
 }

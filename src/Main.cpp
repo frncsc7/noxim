@@ -67,33 +67,32 @@ int sc_main(int arg_num, char *arg_vet[])
     // Trace signals
     sc_trace_file *tf = NULL;
     if (GlobalParams::trace_mode) {
-	tf = sc_create_vcd_trace_file(GlobalParams::trace_filename.c_str());
-	sc_trace(tf, reset, "reset");
-	sc_trace(tf, clock, "clock");
+       tf = sc_create_vcd_trace_file(GlobalParams::trace_filename.c_str());
+       sc_trace(tf, reset, "reset");
+       sc_trace(tf, clock, "clock");
 
-	for (int i = 0; i < GlobalParams::mesh_dim_x; i++) {
-	    for (int j = 0; j < GlobalParams::mesh_dim_y; j++) {
-		char label[64];
-
-		sprintf(label, "req(%02d)(%02d).east", i, j);
-		sc_trace(tf, n->req[i][j].east, label);
-		sprintf(label, "req(%02d)(%02d).west", i, j);
-		sc_trace(tf, n->req[i][j].west, label);
-		sprintf(label, "req(%02d)(%02d).south", i, j);
-		sc_trace(tf, n->req[i][j].south, label);
-		sprintf(label, "req(%02d)(%02d).north", i, j);
-		sc_trace(tf, n->req[i][j].north, label);
-
-		sprintf(label, "ack(%02d)(%02d).east", i, j);
-		sc_trace(tf, n->ack[i][j].east, label);
-		sprintf(label, "ack(%02d)(%02d).west", i, j);
-		sc_trace(tf, n->ack[i][j].west, label);
-		sprintf(label, "ack(%02d)(%02d).south", i, j);
-		sc_trace(tf, n->ack[i][j].south, label);
-		sprintf(label, "ack(%02d)(%02d).north", i, j);
-		sc_trace(tf, n->ack[i][j].north, label);
-	    }
-	}
+       for (int i = 0; i < GlobalParams::mesh_dim_x; i++) {
+           for (int j = 0; j < GlobalParams::mesh_dim_y; j++) {
+            char label[64];
+            sprintf(label, "req(%02d)(%02d).east", i, j);
+            sc_trace(tf, n->req[i][j].east, label);
+            sprintf(label, "req(%02d)(%02d).west", i, j);
+            sc_trace(tf, n->req[i][j].west, label);
+            sprintf(label, "req(%02d)(%02d).south", i, j);
+            sc_trace(tf, n->req[i][j].south, label);
+            sprintf(label, "req(%02d)(%02d).north", i, j);
+            sc_trace(tf, n->req[i][j].north, label);
+        
+            sprintf(label, "ack(%02d)(%02d).east", i, j);
+            sc_trace(tf, n->ack[i][j].east, label);
+            sprintf(label, "ack(%02d)(%02d).west", i, j);
+            sc_trace(tf, n->ack[i][j].west, label);
+            sprintf(label, "ack(%02d)(%02d).south", i, j);
+            sc_trace(tf, n->ack[i][j].south, label);
+            sprintf(label, "ack(%02d)(%02d).north", i, j);
+            sc_trace(tf, n->ack[i][j].north, label);
+           }
+       }
     }
     // Reset the chip and run the simulation
     reset.write(1);
@@ -119,25 +118,25 @@ int sc_main(int arg_num, char *arg_vet[])
 
 
     if ((GlobalParams::max_volume_to_be_drained > 0) &&
-	(sc_time_stamp().to_double() / GlobalParams::clock_period_ps - GlobalParams::reset_time >=
-	 GlobalParams::simulation_time)) {
-	cout << endl
+    (sc_time_stamp().to_double() / GlobalParams::clock_period_ps - GlobalParams::reset_time >=
+     GlobalParams::simulation_time)) {
+    cout << endl
          << "WARNING! the number of flits specified with -volume option" << endl
-	     << "has not been reached. ( " << drained_volume << " instead of " << GlobalParams::max_volume_to_be_drained << " )" << endl
+         << "has not been reached. ( " << drained_volume << " instead of " << GlobalParams::max_volume_to_be_drained << " )" << endl
          << "You might want to try an higher value of simulation cycles" << endl
-	     << "using -sim option." << endl;
+         << "using -sim option." << endl;
 
 #ifdef TESTING
-	cout << endl
+    cout << endl
          << " Sum of local drained flits: " << gs.drained_total << endl
-	     << endl
+         << endl
          << " Effective drained volume: " << drained_volume;
 #endif
 
     }
 
 #ifdef DEADLOCK_AVOIDANCE
-	cout << "***** WARNING: DEADLOCK_AVOIDANCE ENABLED!" << endl;
+    cout << "***** WARNING: DEADLOCK_AVOIDANCE ENABLED!" << endl;
 #endif
     return 0;
 }

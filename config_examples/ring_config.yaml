@@ -14,6 +14,7 @@
 topology: RING
 bidirectionality: false # FM: When false, a unidirectional ring will be instantiated
 slide_offset: 1
+n_rings: 2
 # X and Y mesh sizes
 mesh_dim_x: 4
 mesh_dim_y: 2 # FM: in reality, having a mesh and not a torus here creates a linear array, not a ring (if dim=1)
@@ -162,7 +163,8 @@ probability_of_retransmission: 0.01 # This seems to be causing an additional del
 #   TRAFFIC_BIT_REVERSAL
 #   TRAFFIC_SHUFFLE
 #   TRAFFIC_BUTTERFLY
-#   TRAFFIC_SLIDE1UP FM:Added for an experiment
+#   TRAFFIC_SLIDEUP
+#   TRAFFIC_FFTW1 : Pattern 1 observed in the FFTW kernel
 traffic_distribution: TRAFFIC_SLIDEUP
 # when traffic table based is specified, use the following
 # configuration file

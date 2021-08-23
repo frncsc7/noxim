@@ -71,6 +71,7 @@ void loadConfiguration() {
         GlobalParams::mesh_dim_y = readParam<int>(config, "mesh_dim_y");
         GlobalParams::bidirectionality = readParam<bool>(config, "bidirectionality");
         GlobalParams::slide_offset = readParam<int>(config, "slide_offset");
+        GlobalParams::n_rings = readParam<int>(config, "n_rings");
     } // FM: Maybe should be something more similar to the instance of n_delta_tiles? Giving a go with this
 
     GlobalParams::r2r_link_length = readParam<double>(config, "r2r_link_length");

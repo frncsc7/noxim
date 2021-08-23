@@ -64,3 +64,4 @@ int GlobalParams::channel_selection;
 // FM: Added for ring
 bool GlobalParams::bidirectionality; // FM: If false, then the ring is unidirectional
 int GlobalParams::slide_offset;
+int GlobalParams::n_rings;

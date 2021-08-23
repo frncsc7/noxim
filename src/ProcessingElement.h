@@ -39,7 +39,18 @@ SC_MODULE(ProcessingElement)
 
     sc_in < int >free_slots_neighbor_i;
 
-    sc_in <bool> busy_i;
+    // Ring related I/O
+    sc_in < Flit > flit_ring_rx_i[RINGS];   // The input channel
+    sc_in < bool > req_ring_rx_i[RINGS];    // The request associated with the input channel
+    sc_out < bool > ack_ring_rx_o[RINGS];   // The outgoing ack signal associated with the input channel
+    sc_out < TBufferFullStatus > buffer_full_status_ring_rx_o[RINGS];
+
+    sc_out < Flit > flit_ring_tx_o[RINGS];  // The output channel
+    sc_out < bool > req_ring_tx_o[RINGS];   // The request associated with the output channel
+    sc_in < bool > ack_ring_tx_i[RINGS];    // The outgoing ack signal associated with the output channel
+    sc_in < TBufferFullStatus > buffer_full_status_ring_tx_i[RINGS];
+
+    sc_in <bool> ring_busy_i[RINGS];
 
     // Registers
     int local_id;		// Unique identification number
@@ -47,8 +58,13 @@ SC_MODULE(ProcessingElement)
     bool current_level_tx;	// Current level for Alternating Bit Protocol (ABP)
     queue < Packet > packet_queue;	// Local queue of packets
     bool transmittedAtPreviousCycle;	// Used for distributions with memory
-    // FM: added a register to count the number of packets generated in the packet queue of the PE
-    int n_packets;
+    // FM: added a register to count the number of packets generated in the packet queue of the PE (for each ring)
+    int n_packets[RINGS];
+    //Ring Registers
+    bool ring_current_level_rx[RINGS];  // Current level for Alternating Bit Protocol (ABP)
+    bool ring_current_level_tx[RINGS];  // Current level for Alternating Bit Protocol (ABP)
+    queue < Packet > ring_packet_queue[RINGS];  // Local queue of packets
+    bool ring_transmittedAtPreviousCycle[RINGS];    // Used for distributions with memory
     // Functions
     void process();
     void rxProcess();		// The receiving process
@@ -56,6 +72,7 @@ SC_MODULE(ProcessingElement)
     void ringProcess();
     bool canShot(Packet & packet);	// True when the packet must be shot
     Flit nextFlit();	// Take the next flit of the current packet
+    Flit nextringFlit(int ring_id);
     Packet trafficTest();	// used for testing traffic
     Packet trafficRandom();	// Random destination distribution
     Packet trafficTranspose1();	// Transpose 1 destination distribution
