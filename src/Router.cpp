@@ -72,8 +72,9 @@ void Router::ringProcess() {
   if (reset.read()) {
     // Clear outputs and indexes of transmitting protocol
     for (int k = 0; k < RINGS; ++k) {
-      for (int i = 0; i < DIRECTIONS + 2; i++) {
+      for (int i = 0; i < DIRECTIONS + 1; ++i) {
         req_ring_tx_o[k][i].write(0);
+        //cout << "Resetting req_ring_tx_o["<<k<<"]["<<i<<"]"<<endl;
         ring_current_level_tx[k][i] = 0;
         ring_tx_inflight[k] = false;
         ack_ring_rx_o[k][i].write(0);

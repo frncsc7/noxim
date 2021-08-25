@@ -71,6 +71,7 @@ SC_MODULE(ProcessingElement)
     void txProcess();		// The transmitting process
     void ringProcess();
     bool canShot(Packet & packet);	// True when the packet must be shot
+    bool ringcanShot(Packet & packet, int ring_id, int data_dst_id);
     Flit nextFlit();	// Take the next flit of the current packet
     Flit nextringFlit(int ring_id);
     Packet trafficTest();	// used for testing traffic
@@ -84,6 +85,7 @@ SC_MODULE(ProcessingElement)
     Packet trafficULocal();	// Random with locality
     // FM: Added declaration of trafficSlideUp()
     Packet trafficSlideUp();
+    Packet trafficFFTW1(int ring_id, int dst_id);
 
     GlobalTrafficTable *traffic_table;	// Reference to the Global traffic Table
     bool never_transmit;	// true if the PE does not transmit any packet 

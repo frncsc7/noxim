@@ -42,7 +42,7 @@ struct sc_signal_NSWEH
 };
 
 template <typename T>
-struct sc_signal_ring_NSWE
+struct sc_signal_ring_NSWE // NOT USED SO FAR, CONSIDER REMOVING
 {
     sc_signal<T> *east;
     sc_signal<T> *west;
@@ -66,10 +66,10 @@ SC_MODULE(NoC)
     sc_signal_NSWE<int> **free_slots;
 
     // Signals ring (creating routers that support bidirectionality using two rings, one per direction)
-    sc_signal_NSWE<bool> ***req_ring;
-    sc_signal_NSWE<bool> ***ack_ring;
-    sc_signal_NSWE<TBufferFullStatus> ***buffer_full_status_ring;
-    sc_signal_NSWE<Flit> ***flit_ring;
+    sc_signal_NSWE<bool> **req_ring[2];
+    sc_signal_NSWE<bool> **ack_ring[2];
+    sc_signal_NSWE<TBufferFullStatus> **buffer_full_status_ring[2];
+    sc_signal_NSWE<Flit> **flit_ring[2];
 
     // NoP
     sc_signal_NSWE<NoP_data> **nop_data;

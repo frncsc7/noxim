@@ -100,7 +100,7 @@ SC_MODULE(Tile)
 
     Tile(sc_module_name nm, int id): sc_module(nm) {
     local_id = id;
-    
+    //cout << "Building Router"<<endl;
     // Router pin assignments
     r = new Router("Router");
     r->clock(clock);
@@ -173,6 +173,7 @@ SC_MODULE(Tile)
     }
 
     // Processing Element pin assignments
+    //cout << "Building PE"<<endl;
     pe = new ProcessingElement("ProcessingElement");
     pe->clock(clock);
     pe->reset(reset);
@@ -205,6 +206,7 @@ SC_MODULE(Tile)
     r->free_slots[DIRECTION_LOCAL] (free_slots_local);
     r->free_slots_neighbor[DIRECTION_LOCAL] (free_slots_neighbor_local);
     pe->free_slots_neighbor_i(free_slots_neighbor_local);
+    //cout << "Building in Tile completed"<<endl;
 }
 
 };

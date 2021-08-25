@@ -52,7 +52,7 @@ int sc_main(int arg_num, char *arg_vet[])
 //    cout << "Number of arguments:" << arg_num << endl;
     configure(arg_num, arg_vet);
 
-
+//    cout << "FM: Configuration Completed" << endl;
     // Signals
     sc_clock clock("clock", GlobalParams::clock_period_ps, SC_PS);
     sc_signal <bool> reset;
@@ -63,7 +63,6 @@ int sc_main(int arg_num, char *arg_vet[])
 
     n->clock(clock);
     n->reset(reset);
-
     // Trace signals
     sc_trace_file *tf = NULL;
     if (GlobalParams::trace_mode) {

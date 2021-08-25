@@ -45,28 +45,33 @@ void ProcessingElement::ringProcess() {
             }
             ack_ring_rx_o[k].write(ring_current_level_rx[k]);
             Packet packet;
-            if (canShot(packet)) {
-                ring_packet_queue[k].push(packet);
-                n_packets[k] = n_packets[k] + 1;
-                //LOG << "Currently, " << n_packets[k] << " packets have been generated" << endl;
-                ring_transmittedAtPreviousCycle[k] = true;
-            }
-            else {
-                ring_transmittedAtPreviousCycle[k] = false;
-            }
-            //LOG << "Ack_tx_i = " << ack_ring_tx_i[k].read() << endl; // FM
-            //LOG << "ring_current_level_tx[k] = " << ring_current_level_tx[k] << endl; // FM
-            //LOG << "Busy = " << ring_busy_i[k].read() << endl; // FM
-            if ((ack_ring_tx_i[k].read() == ring_current_level_tx[k]) && !(ring_busy_i[k].read())) { // ADD A CONDITION HERE?
-                //LOG << "Received ack on the current level tx!" << endl; // FM
-                if (!ring_packet_queue[k].empty()) {
-                    //LOG << "Popping a new flit" << endl; // FM
-                    Flit flit = nextringFlit(k);  // Generate a new flit
-                    flit_ring_tx_o[k]->write(flit);  // Send the generated flit
-                    ring_current_level_tx[k] = 1 - ring_current_level_tx[k]; // Negate the old value for Alternating Bit Protocol (ABP)
-                    req_ring_tx_o[k].write(ring_current_level_tx[k]);
+            // If it's for the ring 0 (index ring for gathers, data ring for slides), of is the ring 1 and ring 0 received a data
+            if ( (k == 0) || ((k == 1) && (req_ring_rx_i[0].read() == 1 - ring_current_level_rx[0])) ){
+                Flit flit_tmp_ring = flit_ring_rx_i[0].read();
+                int dst_id = flit_tmp_ring.dst_id;
+                if (ringcanShot(packet, k, dst_id)) {
+                    ring_packet_queue[k].push(packet);
+                    n_packets[k] = n_packets[k] + 1;
+                    //LOG << "Currently, " << n_packets[k] << " packets have been generated" << endl;
+                    ring_transmittedAtPreviousCycle[k] = true;
                 }
-                else LOG << "Packet queue is empty";
+                else {
+                    ring_transmittedAtPreviousCycle[k] = false;
+                }
+                //LOG << "Ack_tx_i = " << ack_ring_tx_i[k].read() << endl; // FM
+                //LOG << "ring_current_level_tx[k] = " << ring_current_level_tx[k] << endl; // FM
+                //LOG << "Busy = " << ring_busy_i[k].read() << endl; // FM
+                if ((ack_ring_tx_i[k].read() == ring_current_level_tx[k]) && !(ring_busy_i[k].read())) { // ADD A CONDITION HERE?
+                    //LOG << "Received ack on the current level tx!" << endl; // FM
+                    if (!ring_packet_queue[k].empty()) {
+                        //LOG << "Popping a new flit" << endl; // FM
+                        Flit flit = nextringFlit(k);  // Generate a new flit
+                        flit_ring_tx_o[k]->write(flit);  // Send the generated flit
+                        ring_current_level_tx[k] = 1 - ring_current_level_tx[k]; // Negate the old value for Alternating Bit Protocol (ABP)
+                        req_ring_tx_o[k].write(ring_current_level_tx[k]);
+                    }
+                    else LOG << "Packet queue is empty";
+                }
             }
         }
     }
@@ -125,6 +130,35 @@ Flit ProcessingElement::nextringFlit(int ring_id) // TODO: Update according to t
     }
 
     return flit;
+}
+
+bool ProcessingElement::ringcanShot(Packet & packet, int ring_id, int data_dst_id)
+{
+   // assert(false);
+    if(never_transmit) return false;
+
+#ifdef DEADLOCK_AVOIDANCE
+    if (local_id%2==0)
+    return false;
+#endif
+    bool shot;
+    double threshold;
+
+    double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
+
+    threshold = GlobalParams::packet_injection_rate;
+    shot = (((double) rand()) / RAND_MAX < threshold);
+    if (shot) {
+        if (GlobalParams::traffic_distribution == TRAFFIC_SLIDEUP)
+            packet = trafficSlideUp();
+        else if (GlobalParams::traffic_distribution == TRAFFIC_FFTW1)
+            packet = trafficFFTW1(ring_id, data_dst_id);
+        else {
+            cout << "Invalid traffic distribution: " << GlobalParams::traffic_distribution << endl;
+            exit(-1);
+        }
+    }
+    return shot;
 }
 
 void ProcessingElement::rxProcess()
@@ -292,8 +326,6 @@ bool ProcessingElement::canShot(Packet & packet)
     		    packet = trafficLocal();
             else if (GlobalParams::traffic_distribution == TRAFFIC_ULOCAL)
     		    packet = trafficULocal();
-            else if (GlobalParams::traffic_distribution == TRAFFIC_SLIDEUP)
-                packet = trafficSlideUp();
             else {
                 cout << "Invalid traffic distribution: " << GlobalParams::traffic_distribution << endl;
                 exit(-1);
@@ -651,6 +683,23 @@ Packet ProcessingElement::trafficSlideUp()
     p.timestamp = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
     p.size = p.flit_left = getRandomSize();
 
+    return p;
+}
+
+Packet ProcessingElement::trafficFFTW1(int ring_id, int dst_id)
+{
+    Packet p;
+    p.src_id = local_id;
+    //cout << "Source " << p.src_id;
+    if (ring_id == 0){
+        if (local_id%2 == 0){
+            p.dst_id = local_id + 1;
+        }
+        else
+            p.dst_id = local_id - 1;
+    }
+    else
+        p.dst_id = dst_id;
     return p;
 }
 
