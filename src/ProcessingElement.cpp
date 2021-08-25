@@ -50,6 +50,7 @@ void ProcessingElement::ringProcess() {
                 Flit flit_tmp_ring = flit_ring_rx_i[0].read();
                 int dst_id = flit_tmp_ring.dst_id;
                 if (ringcanShot(packet, k, dst_id)) {
+                    //LOG << "Pushing a new flit for ring" << k << endl; // FM
                     ring_packet_queue[k].push(packet);
                     n_packets[k] = n_packets[k] + 1;
                     //LOG << "Currently, " << n_packets[k] << " packets have been generated" << endl;
@@ -58,8 +59,8 @@ void ProcessingElement::ringProcess() {
                 else {
                     ring_transmittedAtPreviousCycle[k] = false;
                 }
-                //LOG << "Ack_tx_i = " << ack_ring_tx_i[k].read() << endl; // FM
-                //LOG << "ring_current_level_tx[k] = " << ring_current_level_tx[k] << endl; // FM
+                LOG << "Ack_tx_i = " << ack_ring_tx_i[k].read() << endl; // FM
+                LOG << "ring_current_level_tx[k] = " << ring_current_level_tx[k] << endl; // FM
                 //LOG << "Busy = " << ring_busy_i[k].read() << endl; // FM
                 if ((ack_ring_tx_i[k].read() == ring_current_level_tx[k]) && !(ring_busy_i[k].read())) { // ADD A CONDITION HERE?
                     //LOG << "Received ack on the current level tx!" << endl; // FM

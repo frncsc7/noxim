@@ -140,6 +140,7 @@ void Router::ringProcess() {
             int rnd_idx = rand()%reservations.size();
             int o = reservations[rnd_idx].first;
             int vc = reservations[rnd_idx].second;
+            LOG<<"cl_tx="<<ring_current_level_rx[k][i] << " req= "<<req_ring_rx_i[k][i].read()<<" _ack= "<<ack_ring_rx_o[k][i].read()<< endl;  // FM: Uncomment
             if (req_ring_rx_i[k][i].read() == 1 - ring_current_level_rx[k][i]) {
               ring_current_level_rx[k][i] = 1 - ring_current_level_rx[k][i];
               ack_ring_rx_o[k][i].write(ring_current_level_rx[k][i]);

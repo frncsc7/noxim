@@ -168,7 +168,7 @@ SC_MODULE(Tile)
 
         r->flit_ring_tx_o[k][DIRECTION_LOCAL] (flit_ring_rx_local[k]);
         r->req_ring_tx_o[k][DIRECTION_LOCAL] (req_ring_rx_local[k]);
-        r->ack_ring_tx_i[k][DIRECTION_LOCAL] (ack_ring_tx_local[k]);
+        r->ack_ring_tx_i[k][DIRECTION_LOCAL] (ack_ring_rx_local[k]);
         r->buffer_full_status_ring_tx_i[k][DIRECTION_LOCAL] (buffer_full_status_ring_rx_local[k]);
     }
 
@@ -192,7 +192,7 @@ SC_MODULE(Tile)
     for (int k = 0; k < RINGS; ++k) {
         pe->flit_ring_rx_i[k](flit_ring_rx_local[k]);
         pe->req_ring_rx_i[k](req_ring_rx_local[k]);
-        pe->ack_ring_rx_o[k](ack_ring_tx_local[k]);
+        pe->ack_ring_rx_o[k](ack_ring_rx_local[k]);
         pe->buffer_full_status_ring_rx_o[k](buffer_full_status_ring_rx_local[k]);
 
         pe->flit_ring_tx_o[k](flit_ring_tx_local[k]);
