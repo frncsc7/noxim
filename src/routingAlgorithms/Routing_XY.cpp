@@ -62,7 +62,19 @@ vector<int> Routing_XY::route(Router * router, const RouteData & routeData)
             }
         } // Non-Bidirectional
         else {
-            if (destination.x > current.x) {
+            if (current.y == 0) {
+                if (current.x == GlobalParams::mesh_dim_x -1)
+                    directions.push_back(DIRECTION_SOUTH);
+                else
+                    directions.push_back(DIRECTION_EAST);
+            }
+            else {
+                if (current.x == 0)
+                    directions.push_back(DIRECTION_NORTH);
+                else
+                    directions.push_back(DIRECTION_WEST);
+            }
+            /*if (destination.x > current.x) {
                 if (destination.y > current.y)
                     directions.push_back(DIRECTION_EAST);
                 else {
@@ -96,7 +108,7 @@ vector<int> Routing_XY::route(Router * router, const RouteData & routeData)
                             directions.push_back(DIRECTION_WEST);
                     }
                 }
-            }
+            }*/
         }
     }
     return directions;
