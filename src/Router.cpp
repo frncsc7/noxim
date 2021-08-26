@@ -100,6 +100,7 @@ void Router::ringProcess() {
           input_reqs[k] = input_reqs[k] + 1;
         }
       }
+      //LOG << "Input requests for ring " << k << " is " << input_reqs[k] << endl;
       if (input_reqs[k] > 0) {
         if (flit.dst_id == local_id)
           captured_reqs[k] = captured_reqs[k] + 1;
@@ -150,7 +151,7 @@ void Router::ringProcess() {
               LOG << "Input[" << i << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit << endl;
               flit_ring_tx_o[k][o].write(flit);
               ring_current_level_tx[k][o] = 1 - ring_current_level_tx[k][o];
-              req_tx_o[o].write(ring_current_level_tx[o]);
+              req_ring_tx_o[k][o].write(ring_current_level_tx[k][o]);
               // FM: Double check this. The idea is to always free the reserved port in case the topology is a ring (#flits=#packets)
               TReservation r;
               r.input = i;
