@@ -60,7 +60,7 @@ vector<int> Routing_XY::route(Router * router, const RouteData & routeData)
                         directions.push_back(DIRECTION_WEST);
                 }
             }
-        }
+        } // Non-Bidirectional
         else {
             if (destination.x > current.x) {
                 if (destination.y > current.y)

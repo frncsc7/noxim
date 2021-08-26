@@ -42,15 +42,16 @@ void ProcessingElement::ringProcess() {
             if (req_ring_rx_i[k].read() == 1 - ring_current_level_rx[k]) {
                 Flit flit_tmp = flit_ring_rx_i[k].read();
                 ring_current_level_rx[k] = 1 - ring_current_level_rx[k];    // Negate the old value for Alternating Bit Protocol (ABP)
+                LOG << "ring_current_level_rx[k] = " << ring_current_level_rx[k] << " for ring " << k << endl; // FM
             }
             ack_ring_rx_o[k].write(ring_current_level_rx[k]);
             Packet packet;
             // If it's for the ring 0 (index ring for gathers, data ring for slides), of is the ring 1 and ring 0 received a data
             if ( (k == 0) || ((k == 1) && (req_ring_rx_i[0].read() == 1 - ring_current_level_rx[0])) ){
                 Flit flit_tmp_ring = flit_ring_rx_i[0].read();
-                int dst_id = flit_tmp_ring.dst_id;
+                int dst_id = flit_tmp_ring.src_id;
                 if (ringcanShot(packet, k, dst_id)) {
-                    //LOG << "Pushing a new flit for ring" << k << endl; // FM
+                    LOG << "Pushing a new flit for ring" << k << endl; // FM
                     ring_packet_queue[k].push(packet);
                     n_packets[k] = n_packets[k] + 1;
                     //LOG << "Currently, " << n_packets[k] << " packets have been generated" << endl;
@@ -59,13 +60,13 @@ void ProcessingElement::ringProcess() {
                 else {
                     ring_transmittedAtPreviousCycle[k] = false;
                 }
-                LOG << "Ack_tx_i = " << ack_ring_tx_i[k].read() << endl; // FM
-                LOG << "ring_current_level_tx[k] = " << ring_current_level_tx[k] << endl; // FM
+                //LOG << "Ack_tx_i = " << ack_ring_tx_i[k].read() << endl; // FM
+                //LOG << "ring_current_level_tx[k] = " << ring_current_level_tx[k] << " for ring " << k << endl; // FM
                 //LOG << "Busy = " << ring_busy_i[k].read() << endl; // FM
                 if ((ack_ring_tx_i[k].read() == ring_current_level_tx[k]) && !(ring_busy_i[k].read())) { // ADD A CONDITION HERE?
                     //LOG << "Received ack on the current level tx!" << endl; // FM
                     if (!ring_packet_queue[k].empty()) {
-                        //LOG << "Popping a new flit" << endl; // FM
+                        LOG << "Injecting a new flit to ring " << k << endl; // FM
                         Flit flit = nextringFlit(k);  // Generate a new flit
                         flit_ring_tx_o[k]->write(flit);  // Send the generated flit
                         ring_current_level_tx[k] = 1 - ring_current_level_tx[k]; // Negate the old value for Alternating Bit Protocol (ABP)

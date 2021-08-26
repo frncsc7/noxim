@@ -13,7 +13,7 @@
 #   BUTTERFLY, BASELINE, and OMEGA are Delta Network topologies
 topology: RING
 bidirectionality: false # FM: When false, a unidirectional ring will be instantiated
-slide_offset: 1
+slide_offset: 7
 n_rings: 2
 # X and Y mesh sizes
 mesh_dim_x: 4
