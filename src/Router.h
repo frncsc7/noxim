@@ -53,11 +53,23 @@ SC_MODULE(Router)
     sc_out <int> free_slots[DIRECTIONS + 1];
     sc_in <int> free_slots_neighbor[DIRECTIONS + 1];
 
-    sc_out <bool> busy_o;
-
     // Neighbor-on-Path related I/O
     sc_out < NoP_data > NoP_data_out[DIRECTIONS];
     sc_in < NoP_data > NoP_data_in[DIRECTIONS];
+
+    // Ring Router related signals
+    // number of ports: 4 mesh directions + local + wireless 
+    sc_in <Flit> flit_ring_rx_i[RINGS][DIRECTIONS + 1];   // The input channels 
+    sc_in <bool> req_ring_rx_i[RINGS][DIRECTIONS + 1];    // The requests associated with the input channels
+    sc_out <bool> ack_ring_rx_o[RINGS][DIRECTIONS + 1];   // The outgoing ack signals associated with the input channels
+    sc_out <TBufferFullStatus> buffer_full_status_ring_rx_o[RINGS][DIRECTIONS+1];
+
+    sc_out <Flit> flit_ring_tx_o[RINGS][DIRECTIONS + 1];   // The output channels
+    sc_out <bool> req_ring_tx_o[RINGS][DIRECTIONS + 1];   // The requests associated with the output channels
+    sc_in <bool> ack_ring_tx_i[RINGS][DIRECTIONS + 1];    // The outgoing ack signals associated with the output channels
+    sc_in <TBufferFullStatus> buffer_full_status_ring_tx_i[RINGS][DIRECTIONS+1];
+
+    sc_out <bool> ring_busy_o[RINGS];
 
     // Registers
 
@@ -74,8 +86,13 @@ SC_MODULE(Router)
     unsigned long routed_flits;
     RoutingAlgorithm * routingAlgorithm; 
     SelectionStrategy * selectionStrategy; 
-    Flit flit_PE; // FM
-    bool tx_inflight;
+
+    // Ring Internal signals
+    Flit flit_PE[RINGS]; // FM
+    bool ring_current_level_rx[RINGS][DIRECTIONS + 1];  // Current level for Alternating Bit Protocol (ABP)
+    bool ring_current_level_tx[RINGS][DIRECTIONS + 1];  // Current level for Alternating Bit Protocol (ABP)
+    bool ring_tx_inflight[RINGS];
+
     // Functions
 
     void process();

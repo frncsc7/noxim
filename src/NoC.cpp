@@ -2162,7 +2162,7 @@ void NoC::buildMesh()
     for (int i=0; i < dimX; i++) {
         req[i] = new sc_signal_NSWEH<bool>[dimY];
         ack[i] = new sc_signal_NSWEH<bool>[dimY];
-    buffer_full_status[i] = new sc_signal_NSWEH<TBufferFullStatus>[dimY];
+        buffer_full_status[i] = new sc_signal_NSWEH<TBufferFullStatus>[dimY];
         flit[i] = new sc_signal_NSWEH<Flit>[dimY];
 
         free_slots[i] = new sc_signal_NSWE<int>[dimY];
@@ -2366,17 +2366,17 @@ void NoC::buildMesh()
 
 void NoC::buildRing()
 {
-//    cout << "Building Ring topology"<<endl;
+    //cout << "Building Ring topology"<<endl;
     buildCommon();
-
+    //cout << "Completed Common Building"<<endl;
     // Initialize signals
-//    cout << "Number of nodes on the X-axis: "<<GlobalParams::mesh_dim_x<<endl;
-//    cout << "Number of nodes on the Y-axis: "<<GlobalParams::mesh_dim_y<<endl;
-//    cout << "Building Ring topology"<<endl;
+    // cout << "Number of nodes on the X-axis: "<<GlobalParams::mesh_dim_x<<endl;
+    // cout << "Number of nodes on the Y-axis: "<<GlobalParams::mesh_dim_y<<endl;
+    // cout << "Building Ring topology"<<endl;
     int dimX = GlobalParams::mesh_dim_x + 1;
     int dimY = GlobalParams::mesh_dim_y + 1;
-
     bool bidirectional = GlobalParams::bidirectionality; // FM: To deal with bi- or uni- directional rings
+    int rings = GlobalParams::n_rings;
     req = new sc_signal_NSWEH<bool>*[dimX]; // FM: creates the whole NOC signals -> Some of them will probably be cleaned
     ack = new sc_signal_NSWEH<bool>*[dimX];
     buffer_full_status = new sc_signal_NSWEH<TBufferFullStatus>*[dimX];
@@ -2394,260 +2394,260 @@ void NoC::buildRing()
         free_slots[i] = new sc_signal_NSWE<int>[dimY];
         nop_data[i] = new sc_signal_NSWE<NoP_data>[dimY];
     }
-
+    for (int k = 0; k < rings; ++k){    // CHECK THIS FOR LOOP! IT SEEMS WRONG AS PE AND ROPUTERS GET INSTANTIATED TWICE BY CALLING TH TILE TWICE!!!
+        //cout << "Started cycling on rings"<<endl;
+        req_ring[k] = new sc_signal_NSWE<bool>*[dimX]; // FM: creates the whole NOC signals -> Some of them will probably be cleaned
+        ack_ring[k] = new sc_signal_NSWE<bool>*[dimX];
+        buffer_full_status_ring[k] = new sc_signal_NSWE<TBufferFullStatus>*[dimX];
+        flit_ring[k] = new sc_signal_NSWE<Flit>*[dimX];
+        for (int i=0; i < dimX; i++) {
+            req_ring[k][i] = new sc_signal_NSWE<bool>[dimY];
+            ack_ring[k][i] = new sc_signal_NSWE<bool>[dimY];
+            buffer_full_status_ring[k][i] = new sc_signal_NSWE<TBufferFullStatus>[dimY];
+            flit_ring[k][i] = new sc_signal_NSWE<Flit>[dimY];
+        }
+    } // All ring signals created
     t = new Tile**[GlobalParams::mesh_dim_x]; // FM: Creates the matrix of tiles
     for (int i = 0; i < GlobalParams::mesh_dim_x; i++) {
         t[i] = new Tile*[GlobalParams::mesh_dim_y];
     }
-
-
     // Create the mesh as a matrix of tiles
+
     for (int j = 0; j < GlobalParams::mesh_dim_y; j++) {
-    for (int i = 0; i < GlobalParams::mesh_dim_x; i++) { // FM: Fixing the Y-coordinate, running on the X-coordinate
-        // Create the single Tile with a proper name
-        char tile_name[64];
-        Coord tile_coord;
-        tile_coord.x = i;
-        tile_coord.y = j;
-        int tile_id = coord2Id(tile_coord);
-        sprintf(tile_name, "Tile[%02d][%02d]_(#%d)", i, j, tile_id);
-        //cout << "Creating Tile["<<i<<"]["<<j<<"]_("<<tile_id<<")"<<endl; // FM: creating tiles and assigning IDs
-        t[i][j] = new Tile(tile_name, tile_id); // FM: Creates the Tile, inside it it creates the Router, then probablt the PE
-                                                // Realizes the connections inside a Tile
-        // Tell to the router its coordinates
-        int router_id;
-        if (j == 0)
-            router_id=i;
-        else
-            router_id= GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y - (i + j);
+        for (int i = 0; i < GlobalParams::mesh_dim_x; i++) { // FM: Fixing the Y-coordinate, running on the X-coordinate
+            char tile_name[64];
+            Coord tile_coord;
+            tile_coord.x = i;
+            tile_coord.y = j;
+            int tile_id = coord2Id(tile_coord);
+            sprintf(tile_name, "Tile[%02d][%02d]_(#%d)", i, j, tile_id);
+            //cout << "Creating Tile["<<i<<"]["<<j<<"]_("<<tile_id<<")"<<endl; // FM: creating tiles and assigning IDs
+            t[i][j] = new Tile(tile_name, tile_id); // FM: Creates the Tile, inside it it creates the Router, then probablt the PE
+                                                    // Realizes the connections inside a Tile
+            // Tell to the router its coordinates
+            int router_id;
+            if (j == 0)
+                router_id=i;
+            else
+                router_id= GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y - (i + j);
+            t[i][j]->r->configure(router_id, // FM: Tile->Router->configure (Need to open the Router.cpp to know this)
+                      GlobalParams::stats_warm_up_time,
+                      GlobalParams::buffer_depth,
+                      grtable);
+            t[i][j]->r->power.configureRouter(GlobalParams::flit_size, // FM: Same comment as above
+                                  GlobalParams::buffer_depth,
+                              GlobalParams::flit_size,
+                              string(GlobalParams::routing_algorithm),
+                              "default");
+            // Tell to the PE its coordinates
+            t[i][j]->pe->local_id = router_id; // Same comments as for the Router
+            //cout << "PE local ID="<< t[i][j]->pe->local_id <<endl; // FM: creating tiles and assigning IDs
+            // Check for traffic table availability
+            if (GlobalParams::traffic_distribution == TRAFFIC_TABLE_BASED) {
+                 t[i][j]->pe->traffic_table = &gttable; // Needed to choose destination - > FM: Might be the one to be modified
+                 t[i][j]->pe->never_transmit = (gttable.occurrencesAsSource(t[i][j]->pe->local_id) == 0);
+            }
+            else
+                t[i][j]->pe->never_transmit = false;
+            // Map clock and reset
+            t[i][j]->clock(clock);
+            t[i][j]->reset(reset);
+            // Map Rx signals
+            // Map Rx signals
+            t[i][j]->req_rx[DIRECTION_NORTH] (req[i][j].south); // FM: due to the topology being a mesh. For i=0, the north signals will be probably be cleaned
+            t[i][j]->flit_rx[DIRECTION_NORTH] (flit[i][j].south);
+            t[i][j]->ack_rx[DIRECTION_NORTH] (ack[i][j].north);
+            t[i][j]->buffer_full_status_rx[DIRECTION_NORTH] (buffer_full_status[i][j].north);
+            t[i][j]->req_rx[DIRECTION_EAST] (req[i + 1][j].west);
+            t[i][j]->flit_rx[DIRECTION_EAST] (flit[i + 1][j].west);
+            t[i][j]->ack_rx[DIRECTION_EAST] (ack[i + 1][j].east);
+            t[i][j]->buffer_full_status_rx[DIRECTION_EAST] (buffer_full_status[i+1][j].east);
+            t[i][j]->req_rx[DIRECTION_SOUTH] (req[i][j + 1].north);
+            t[i][j]->flit_rx[DIRECTION_SOUTH] (flit[i][j + 1].north);
+            t[i][j]->ack_rx[DIRECTION_SOUTH] (ack[i][j + 1].south);
+            t[i][j]->buffer_full_status_rx[DIRECTION_SOUTH] (buffer_full_status[i][j+1].south);
+            t[i][j]->req_rx[DIRECTION_WEST] (req[i][j].east);
+            t[i][j]->flit_rx[DIRECTION_WEST] (flit[i][j].east);
+            t[i][j]->ack_rx[DIRECTION_WEST] (ack[i][j].west);
+            t[i][j]->buffer_full_status_rx[DIRECTION_WEST] (buffer_full_status[i][j].west);
+            // Map Tx signals
+            t[i][j]->req_tx[DIRECTION_NORTH] (req[i][j].north);
+            t[i][j]->flit_tx[DIRECTION_NORTH] (flit[i][j].north);
+            t[i][j]->ack_tx[DIRECTION_NORTH] (ack[i][j].south);
+            t[i][j]->buffer_full_status_tx[DIRECTION_NORTH] (buffer_full_status[i][j].south);
+            t[i][j]->req_tx[DIRECTION_EAST] (req[i + 1][j].east);
+            t[i][j]->flit_tx[DIRECTION_EAST] (flit[i + 1][j].east);
+            t[i][j]->ack_tx[DIRECTION_EAST] (ack[i + 1][j].west);
+            t[i][j]->buffer_full_status_tx[DIRECTION_EAST] (buffer_full_status[i + 1][j].west);
+            t[i][j]->req_tx[DIRECTION_SOUTH] (req[i][j + 1].south);
+            t[i][j]->flit_tx[DIRECTION_SOUTH] (flit[i][j + 1].south);
+            t[i][j]->ack_tx[DIRECTION_SOUTH] (ack[i][j + 1].north);
+            t[i][j]->buffer_full_status_tx[DIRECTION_SOUTH] (buffer_full_status[i][j + 1].north);
+            t[i][j]->req_tx[DIRECTION_WEST] (req[i][j].west);
+            t[i][j]->flit_tx[DIRECTION_WEST] (flit[i][j].west);
+            t[i][j]->ack_tx[DIRECTION_WEST] (ack[i][j].east);
+            t[i][j]->buffer_full_status_tx[DIRECTION_WEST] (buffer_full_status[i][j].east);
 
-        t[i][j]->r->configure(router_id, // FM: Tile->Router->configure (Need to open the ROuther.cpp to know this)
-                  GlobalParams::stats_warm_up_time,
-                  GlobalParams::buffer_depth,
-                  grtable);
-        t[i][j]->r->power.configureRouter(GlobalParams::flit_size, // FM: Same comment as above
-                              GlobalParams::buffer_depth,
-                          GlobalParams::flit_size,
-                          string(GlobalParams::routing_algorithm),
-                          "default");
-                          
+            for (int k = 0; k < RINGS; ++k){
+                t[i][j]->req_ring_rx[k][DIRECTION_NORTH] (req_ring[k][i][j].south); // FM: due to the topology being a mesh. For i=0, the north signals will be probably be cleaned
+                t[i][j]->flit_ring_rx[k][DIRECTION_NORTH] (flit_ring[k][i][j].south);
+                t[i][j]->ack_ring_rx[k][DIRECTION_NORTH] (ack_ring[k][i][j].north);
+                t[i][j]->buffer_full_status_ring_rx[k][DIRECTION_NORTH] (buffer_full_status_ring[k][i][j].north);
 
+                t[i][j]->req_ring_rx[k][DIRECTION_EAST] (req_ring[k][i + 1][j].west);
+                t[i][j]->flit_ring_rx[k][DIRECTION_EAST] (flit_ring[k][i + 1][j].west);
+                t[i][j]->ack_ring_rx[k][DIRECTION_EAST] (ack_ring[k][i + 1][j].east);
+                t[i][j]->buffer_full_status_ring_rx[k][DIRECTION_EAST] (buffer_full_status_ring[k][i+1][j].east);
 
-        // Tell to the PE its coordinates
-        t[i][j]->pe->local_id = router_id; // Same comments as for the Router
-        //cout << "PE local ID="<< t[i][j]->pe->local_id <<endl; // FM: creating tiles and assigning IDs
-        // Check for traffic table availability
-        if (GlobalParams::traffic_distribution == TRAFFIC_TABLE_BASED)
-        {
-             t[i][j]->pe->traffic_table = &gttable; // Needed to choose destination - > FM: Might be the one to be modified
-             t[i][j]->pe->never_transmit = (gttable.occurrencesAsSource(t[i][j]->pe->local_id) == 0);
+                t[i][j]->req_ring_rx[k][DIRECTION_SOUTH] (req_ring[k][i][j + 1].north);
+                t[i][j]->flit_ring_rx[k][DIRECTION_SOUTH] (flit_ring[k][i][j + 1].north);
+                t[i][j]->ack_ring_rx[k][DIRECTION_SOUTH] (ack_ring[k][i][j + 1].south);
+                t[i][j]->buffer_full_status_ring_rx[k][DIRECTION_SOUTH] (buffer_full_status_ring[k][i][j+1].south);
+
+                t[i][j]->req_ring_rx[k][DIRECTION_WEST] (req_ring[k][i][j].east);
+                t[i][j]->flit_ring_rx[k][DIRECTION_WEST] (flit_ring[k][i][j].east);
+                t[i][j]->ack_ring_rx[k][DIRECTION_WEST] (ack_ring[k][i][j].west);
+                t[i][j]->buffer_full_status_ring_rx[k][DIRECTION_WEST] (buffer_full_status_ring[k][i][j].west);
+                // Map Tx signals
+                t[i][j]->req_ring_tx[k][DIRECTION_NORTH] (req_ring[k][i][j].north);
+                t[i][j]->flit_ring_tx[k][DIRECTION_NORTH] (flit_ring[k][i][j].north);
+                t[i][j]->ack_ring_tx[k][DIRECTION_NORTH] (ack_ring[k][i][j].south);
+                t[i][j]->buffer_full_status_ring_tx[k][DIRECTION_NORTH] (buffer_full_status_ring[k][i][j].south);
+
+                t[i][j]->req_ring_tx[k][DIRECTION_EAST] (req_ring[k][i + 1][j].east);
+                t[i][j]->flit_ring_tx[k][DIRECTION_EAST] (flit_ring[k][i + 1][j].east);
+                t[i][j]->ack_ring_tx[k][DIRECTION_EAST] (ack_ring[k][i + 1][j].west);
+                t[i][j]->buffer_full_status_ring_tx[k][DIRECTION_EAST] (buffer_full_status_ring[k][i + 1][j].west);
+
+                t[i][j]->req_ring_tx[k][DIRECTION_SOUTH] (req_ring[k][i][j + 1].south);
+                t[i][j]->flit_ring_tx[k][DIRECTION_SOUTH] (flit_ring[k][i][j + 1].south);
+                t[i][j]->ack_ring_tx[k][DIRECTION_SOUTH] (ack_ring[k][i][j + 1].north);
+                t[i][j]->buffer_full_status_ring_tx[k][DIRECTION_SOUTH] (buffer_full_status_ring[k][i][j + 1].north);
+
+                t[i][j]->req_ring_tx[k][DIRECTION_WEST] (req_ring[k][i][j].west);
+                t[i][j]->flit_ring_tx[k][DIRECTION_WEST] (flit_ring[k][i][j].west);
+                t[i][j]->ack_ring_tx[k][DIRECTION_WEST] (ack_ring[k][i][j].east);
+                t[i][j]->buffer_full_status_ring_tx[k][DIRECTION_WEST] (buffer_full_status_ring[k][i][j].east);
+            }
+
+            // TODO: check if hub signal is always required
+            // signals/port when tile receives(rx) from hub
+            t[i][j]->hub_req_rx(req[i][j].from_hub);
+            t[i][j]->hub_flit_rx(flit[i][j].from_hub);
+            t[i][j]->hub_ack_rx(ack[i][j].to_hub);
+            t[i][j]->hub_buffer_full_status_rx(buffer_full_status[i][j].to_hub);
+            // signals/port when tile transmits(tx) to hub
+            t[i][j]->hub_req_tx(req[i][j].to_hub); // 7, sc_out
+            t[i][j]->hub_flit_tx(flit[i][j].to_hub);
+            t[i][j]->hub_ack_tx(ack[i][j].from_hub);
+            t[i][j]->hub_buffer_full_status_tx(buffer_full_status[i][j].from_hub);
+
+            map<int, int>::iterator it = GlobalParams::hub_for_tile.find(tile_id);
+            if (it != GlobalParams::hub_for_tile.end()){
+                int hub_id = GlobalParams::hub_for_tile[tile_id];
+                // The next time that the same HUB is considered, the next
+                // port will be connected
+                int port = hub_connected_ports[hub_id]++;
+                hub[hub_id]->tile2port_mapping[t[i][j]->local_id] = port;
+                hub[hub_id]->req_rx[port](req[i][j].to_hub);
+                hub[hub_id]->flit_rx[port](flit[i][j].to_hub);
+                hub[hub_id]->ack_rx[port](ack[i][j].from_hub);
+                hub[hub_id]->buffer_full_status_rx[port](buffer_full_status[i][j].from_hub);
+                hub[hub_id]->flit_tx[port](flit[i][j].from_hub);
+                hub[hub_id]->req_tx[port](req[i][j].from_hub);
+                hub[hub_id]->ack_tx[port](ack[i][j].to_hub);
+                hub[hub_id]->buffer_full_status_tx[port](buffer_full_status[i][j].to_hub);
+            }
+            // Map buffer level signals (analogy with req_tx/rx port mapping)
+            t[i][j]->free_slots[DIRECTION_NORTH] (free_slots[i][j].north);
+            t[i][j]->free_slots[DIRECTION_EAST] (free_slots[i + 1][j].east);
+            t[i][j]->free_slots[DIRECTION_SOUTH] (free_slots[i][j + 1].south);
+            t[i][j]->free_slots[DIRECTION_WEST] (free_slots[i][j].west);
+            t[i][j]->free_slots_neighbor[DIRECTION_NORTH] (free_slots[i][j].south);
+            t[i][j]->free_slots_neighbor[DIRECTION_EAST] (free_slots[i + 1][j].west);
+            t[i][j]->free_slots_neighbor[DIRECTION_SOUTH] (free_slots[i][j + 1].north);
+            t[i][j]->free_slots_neighbor[DIRECTION_WEST] (free_slots[i][j].east);
+            // NoP 
+            t[i][j]->NoP_data_out[DIRECTION_NORTH] (nop_data[i][j].north);
+            t[i][j]->NoP_data_out[DIRECTION_EAST] (nop_data[i + 1][j].east);
+            t[i][j]->NoP_data_out[DIRECTION_SOUTH] (nop_data[i][j + 1].south);
+            t[i][j]->NoP_data_out[DIRECTION_WEST] (nop_data[i][j].west);
+            t[i][j]->NoP_data_in[DIRECTION_NORTH] (nop_data[i][j].south);
+            t[i][j]->NoP_data_in[DIRECTION_EAST] (nop_data[i + 1][j].west);
+            t[i][j]->NoP_data_in[DIRECTION_SOUTH] (nop_data[i][j + 1].north);
+            t[i][j]->NoP_data_in[DIRECTION_WEST] (nop_data[i][j].east);
         }
-        else
-            t[i][j]->pe->never_transmit = false;
-
-        // Map clock and reset
-        t[i][j]->clock(clock);
-        t[i][j]->reset(reset);
-
-        // Map Rx signals
-        t[i][j]->req_rx[DIRECTION_NORTH] (req[i][j].south); // FM: due to the topology being a mesh. For i=0, the north signals will be probably be cleaned
-        t[i][j]->flit_rx[DIRECTION_NORTH] (flit[i][j].south);
-        t[i][j]->ack_rx[DIRECTION_NORTH] (ack[i][j].north);
-        t[i][j]->buffer_full_status_rx[DIRECTION_NORTH] (buffer_full_status[i][j].north);
-
-        t[i][j]->req_rx[DIRECTION_EAST] (req[i + 1][j].west);
-        t[i][j]->flit_rx[DIRECTION_EAST] (flit[i + 1][j].west);
-        t[i][j]->ack_rx[DIRECTION_EAST] (ack[i + 1][j].east);
-        t[i][j]->buffer_full_status_rx[DIRECTION_EAST] (buffer_full_status[i+1][j].east);
-
-        t[i][j]->req_rx[DIRECTION_SOUTH] (req[i][j + 1].north);
-        t[i][j]->flit_rx[DIRECTION_SOUTH] (flit[i][j + 1].north);
-        t[i][j]->ack_rx[DIRECTION_SOUTH] (ack[i][j + 1].south);
-        t[i][j]->buffer_full_status_rx[DIRECTION_SOUTH] (buffer_full_status[i][j+1].south);
-
-        t[i][j]->req_rx[DIRECTION_WEST] (req[i][j].east);
-        t[i][j]->flit_rx[DIRECTION_WEST] (flit[i][j].east);
-        t[i][j]->ack_rx[DIRECTION_WEST] (ack[i][j].west);
-        t[i][j]->buffer_full_status_rx[DIRECTION_WEST] (buffer_full_status[i][j].west);
-
-        // Map Tx signals
-        t[i][j]->req_tx[DIRECTION_NORTH] (req[i][j].north);
-        t[i][j]->flit_tx[DIRECTION_NORTH] (flit[i][j].north);
-        t[i][j]->ack_tx[DIRECTION_NORTH] (ack[i][j].south);
-        t[i][j]->buffer_full_status_tx[DIRECTION_NORTH] (buffer_full_status[i][j].south);
-
-        t[i][j]->req_tx[DIRECTION_EAST] (req[i + 1][j].east);
-        t[i][j]->flit_tx[DIRECTION_EAST] (flit[i + 1][j].east);
-        t[i][j]->ack_tx[DIRECTION_EAST] (ack[i + 1][j].west);
-        t[i][j]->buffer_full_status_tx[DIRECTION_EAST] (buffer_full_status[i + 1][j].west);
-
-        t[i][j]->req_tx[DIRECTION_SOUTH] (req[i][j + 1].south);
-        t[i][j]->flit_tx[DIRECTION_SOUTH] (flit[i][j + 1].south);
-        t[i][j]->ack_tx[DIRECTION_SOUTH] (ack[i][j + 1].north);
-        t[i][j]->buffer_full_status_tx[DIRECTION_SOUTH] (buffer_full_status[i][j + 1].north);
-
-        t[i][j]->req_tx[DIRECTION_WEST] (req[i][j].west);
-        t[i][j]->flit_tx[DIRECTION_WEST] (flit[i][j].west);
-        t[i][j]->ack_tx[DIRECTION_WEST] (ack[i][j].east);
-        t[i][j]->buffer_full_status_tx[DIRECTION_WEST] (buffer_full_status[i][j].east);
-
-        // TODO: check if hub signal is always required
-        // signals/port when tile receives(rx) from hub
-        t[i][j]->hub_req_rx(req[i][j].from_hub);
-        t[i][j]->hub_flit_rx(flit[i][j].from_hub);
-        t[i][j]->hub_ack_rx(ack[i][j].to_hub);
-        t[i][j]->hub_buffer_full_status_rx(buffer_full_status[i][j].to_hub);
-
-        // signals/port when tile transmits(tx) to hub
-        t[i][j]->hub_req_tx(req[i][j].to_hub); // 7, sc_out
-        t[i][j]->hub_flit_tx(flit[i][j].to_hub);
-        t[i][j]->hub_ack_tx(ack[i][j].from_hub);
-        t[i][j]->hub_buffer_full_status_tx(buffer_full_status[i][j].from_hub);
-
-        // TODO: Review port index. Connect each Hub to all its Channels 
-        map<int, int>::iterator it = GlobalParams::hub_for_tile.find(tile_id);
-        if (it != GlobalParams::hub_for_tile.end())
-        {
-            int hub_id = GlobalParams::hub_for_tile[tile_id];
-
-            // The next time that the same HUB is considered, the next
-            // port will be connected
-            int port = hub_connected_ports[hub_id]++;
-
-            hub[hub_id]->tile2port_mapping[t[i][j]->local_id] = port;
-
-            hub[hub_id]->req_rx[port](req[i][j].to_hub);
-            hub[hub_id]->flit_rx[port](flit[i][j].to_hub);
-            hub[hub_id]->ack_rx[port](ack[i][j].from_hub);
-            hub[hub_id]->buffer_full_status_rx[port](buffer_full_status[i][j].from_hub);
-
-            hub[hub_id]->flit_tx[port](flit[i][j].from_hub);
-            hub[hub_id]->req_tx[port](req[i][j].from_hub);
-            hub[hub_id]->ack_tx[port](ack[i][j].to_hub);
-            hub[hub_id]->buffer_full_status_tx[port](buffer_full_status[i][j].to_hub);
-        }
-
-        // Map buffer level signals (analogy with req_tx/rx port mapping)
-        t[i][j]->free_slots[DIRECTION_NORTH] (free_slots[i][j].north);
-        t[i][j]->free_slots[DIRECTION_EAST] (free_slots[i + 1][j].east);
-        t[i][j]->free_slots[DIRECTION_SOUTH] (free_slots[i][j + 1].south);
-        t[i][j]->free_slots[DIRECTION_WEST] (free_slots[i][j].west);
-
-        t[i][j]->free_slots_neighbor[DIRECTION_NORTH] (free_slots[i][j].south);
-        t[i][j]->free_slots_neighbor[DIRECTION_EAST] (free_slots[i + 1][j].west);
-        t[i][j]->free_slots_neighbor[DIRECTION_SOUTH] (free_slots[i][j + 1].north);
-        t[i][j]->free_slots_neighbor[DIRECTION_WEST] (free_slots[i][j].east);
-
-        // NoP 
-        t[i][j]->NoP_data_out[DIRECTION_NORTH] (nop_data[i][j].north);
-        t[i][j]->NoP_data_out[DIRECTION_EAST] (nop_data[i + 1][j].east);
-        t[i][j]->NoP_data_out[DIRECTION_SOUTH] (nop_data[i][j + 1].south);
-        t[i][j]->NoP_data_out[DIRECTION_WEST] (nop_data[i][j].west);
-
-        t[i][j]->NoP_data_in[DIRECTION_NORTH] (nop_data[i][j].south);
-        t[i][j]->NoP_data_in[DIRECTION_EAST] (nop_data[i + 1][j].west);
-        t[i][j]->NoP_data_in[DIRECTION_SOUTH] (nop_data[i][j + 1].north);
-        t[i][j]->NoP_data_in[DIRECTION_WEST] (nop_data[i][j].east);
-
     }
-    }
-
     // dummy NoP_data structure
-    NoP_data tmp_NoP;
-
-    tmp_NoP.sender_id = NOT_VALID;
-
-    for (int i = 0; i < DIRECTIONS; i++) {
-    tmp_NoP.channel_status_neighbor[i].free_slots = NOT_VALID;
-    tmp_NoP.channel_status_neighbor[i].available = false;
-    }
-
-
+    // NoP_data tmp_NoP;
+    // tmp_NoP.sender_id = NOT_VALID;
+    // for (int i = 0; i < DIRECTIONS; i++) {
+    // tmp_NoP.channel_status_neighbor[i].free_slots = NOT_VALID;
+    // tmp_NoP.channel_status_neighbor[i].available = false;
+    // }
     // Clear signals for borderline nodes
     // FM: Depending on the value of bidirectional, some connections will be deleted
     for (int i = 0; i <= GlobalParams::mesh_dim_x; i++) {
-    req[i][0].south = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
-    ack[i][0].north = 0;
-    req[i][GlobalParams::mesh_dim_y].north = 0; // FM: Extra, remove
-    ack[i][GlobalParams::mesh_dim_y].south = 0; // FM: Extra, remove
-
-    free_slots[i][0].south.write(NOT_VALID);
-    free_slots[i][GlobalParams::mesh_dim_y].north.write(NOT_VALID);
-
-    nop_data[i][0].south.write(tmp_NoP);
-    nop_data[i][GlobalParams::mesh_dim_y].north.write(tmp_NoP);
-
-    // FM: Remove middle North and South connections
+        for (int k = 0; k < RINGS; ++k) {
+            req_ring[k][i][0].south = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
+            ack_ring[k][i][0].north = 0;
+            req_ring[k][i][GlobalParams::mesh_dim_y].north = 0; // FM: Extra, remove
+            ack_ring[k][i][GlobalParams::mesh_dim_y].south = 0; // FM: Extra, remove
+        }
+    // FM: Remove middle North and South connections -> TODO CHECK
         for (int j = 0; j < GlobalParams::mesh_dim_y; j++) {
             if ((i!=0) && (i!= GlobalParams::mesh_dim_x-1)) {
                 //cout << "Cleaning south [" <<i<<"]["<<j<<"]"<<endl;
-                req[i][j].south = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
-                ack[i][j].north = 0;
-                //cout << "Cleaning north [" <<i<<"]["<<j<<"]"<<endl;
-                req[i][j].north = 0; // FM: Extra, remove
-                ack[i][j].south = 0; // FM: Extra, remove
-                free_slots[i][j].south.write(NOT_VALID);
-                free_slots[i][j].north.write(NOT_VALID);
-                nop_data[i][j].south.write(tmp_NoP);
-                nop_data[i][j].north.write(tmp_NoP);
-            }
-            if (!bidirectional)
-            {
-                //cout << "Unidirectional Ring" << endl;
-                if ((j== 0)) {
-                    //cout << "Cleaning west [" <<i<<"]["<<j<<"]"<<endl;
-                    req[i][j].west = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
-                    ack[i][j].east = 0;
-                    free_slots[i][j].west.write(NOT_VALID);
-                    nop_data[i][j].east.write(tmp_NoP);
+                for (int k = 0; k < RINGS; ++k) {
+                    req_ring[k][i][j].south = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
+                    ack_ring[k][i][j].north = 0;
+                    req_ring[k][i][j].north = 0; // FM: Extra, remove
+                    ack_ring[k][i][j].south = 0; // FM: Extra, remove
                 }
-                else {
-                    //cout << "Cleaning east [" <<i<<"]["<<j<<"]"<<endl;
-                    req[i][j].east = 0;
-                    ack[i][j].west = 0;
-                    free_slots[i][j].east.write(NOT_VALID);
-                    nop_data[i][j].west.write(tmp_NoP);
-                    if (i==GlobalParams::mesh_dim_x-1)
-                    {
-                        req[i][j].north = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
-                        ack[i][j].south = 0;
-                        free_slots[i][j].north.write(NOT_VALID);
-                        nop_data[i][j].south.write(tmp_NoP);
+            }
+            if (!bidirectional) {
+                //cout << "Unidirectional Ring" << endl;
+                for (int k = 0; k < RINGS; ++k){
+                    if ((j== 0)) {
+                        //cout << "Cleaning west [" <<i<<"]["<<j<<"]"<<endl;
+                        req_ring[k][i][j].west = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
+                        ack_ring[k][i][j].east = 0;
                     }
                     else {
-                        req[i][j].south = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
-                        ack[i][j].north = 0;
-                        free_slots[i][j].south.write(NOT_VALID);
-                        nop_data[i][j].north.write(tmp_NoP);
+                        //cout << "Cleaning east [" <<i<<"]["<<j<<"]"<<endl;
+                        req_ring[k][i][j].east = 0;
+                        ack_ring[k][i][j].west = 0;
+                        if (i==GlobalParams::mesh_dim_x-1){
+                            req_ring[k][i][j].north = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
+                            ack_ring[k][i][j].south = 0;
+                        }
+                        else {
+                            req_ring[k][i][j].south = 0; // FM: Connected to the north ports above, for j=0 doesn't exist (but they exist in a torus)
+                            ack_ring[k][i][j].north = 0;
+                        }
                     }
                 }
             }
         }
     }
-
     for (int j = 0; j <= GlobalParams::mesh_dim_y; j++) {
-    //cout << "Cleaning east [0]["<<j<<"]"<<endl;
-    req[0][j].east = 0;
-    ack[0][j].west = 0;
-    //cout << "Cleaning west [" <<GlobalParams::mesh_dim_x<<"]["<<j<<"]"<<endl;
-    req[GlobalParams::mesh_dim_x][j].west = 0;
-    ack[GlobalParams::mesh_dim_x][j].east = 0;
-
-    free_slots[0][j].east.write(NOT_VALID);
-    free_slots[GlobalParams::mesh_dim_x][j].west.write(NOT_VALID);
-
-    nop_data[0][j].east.write(tmp_NoP);
-    nop_data[GlobalParams::mesh_dim_x][j].west.write(tmp_NoP);
-
+        //cout << "Cleaning east [0]["<<j<<"]"<<endl;
+        for (int k = 0; k < RINGS; ++k){
+            req_ring[k][0][j].east = 0;
+            ack_ring[k][0][j].west = 0;
+            //cout << "Cleaning west [" <<GlobalParams::mesh_dim_x<<"]["<<j<<"]"<<endl;
+            req_ring[k][GlobalParams::mesh_dim_x][j].west = 0;
+            ack_ring[k][GlobalParams::mesh_dim_x][j].east = 0;
+        }
     }
-
     //cout << "Cleaning west [0]["<<GlobalParams::mesh_dim_y-1<<"]"<<endl;
-    req[0][GlobalParams::mesh_dim_y-1].west = 0;
-    ack[0][GlobalParams::mesh_dim_y-1].east = 0;
-    free_slots[0][GlobalParams::mesh_dim_y-1].west.write(NOT_VALID);
-    nop_data[0][GlobalParams::mesh_dim_y-1].east.write(tmp_NoP);
-
+    for (int k = 0; k < RINGS; ++k){
+        req_ring[k][0][GlobalParams::mesh_dim_y-1].west = 0;
+        ack_ring[k][0][GlobalParams::mesh_dim_y-1].east = 0;
+    }
+    cout << "Leaving Noc.cc" <<endl;
 }
+
 
 
 Tile *NoC::searchNode(const int id) const
@@ -2694,4 +2694,3 @@ void NoC::asciiMonitor()
         }
     }
 }
-

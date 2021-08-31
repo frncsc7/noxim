@@ -33,6 +33,9 @@ using namespace std;
 #define DIRECTION_HUB_RELAY     5000
 #define DIRECTION_WIRELESS    747
 
+// Define number of rings
+#define RINGS 2
+
 #define MAX_VIRTUAL_CHANNELS	8
 #define DEFAULT_VC 		0
 
@@ -79,6 +82,7 @@ using namespace std;
 // FM: Try adding a type of traffic slide1up -> move data toward next destination
 #define TRAFFIC_SLIDEUP       "TRAFFIC_SLIDEUP"
 #define TRAFFIC_SLIDEDOWN     "TRAFFIC_SLIDEDOWN"
+#define TRAFFIC_FFTW1         "TRAFFIC_FFTW1" // FM: First traffic pattern found in fftw
 
 // Verbosity levels
 #define VERBOSE_OFF            "VERBOSE_OFF"
@@ -193,6 +197,7 @@ struct GlobalParams {
     //FM: Added for ring
     static bool bidirectionality;
     static int slide_offset;
+    static int n_rings;
 };
 
 #endif

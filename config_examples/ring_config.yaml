@@ -13,7 +13,8 @@
 #   BUTTERFLY, BASELINE, and OMEGA are Delta Network topologies
 topology: RING
 bidirectionality: false # FM: When false, a unidirectional ring will be instantiated
-slide_offset: 7
+slide_offset: 2
+n_rings: 2
 # X and Y mesh sizes
 mesh_dim_x: 4
 mesh_dim_y: 2 # FM: in reality, having a mesh and not a torus here creates a linear array, not a ring (if dim=1)
@@ -121,13 +122,13 @@ clock_period_ps: 1000
 # duration of reset signal assertion, expressed in cycles
 reset_time: 1000
 # overal simulation lenght, expressed in cycles
-simulation_time: 100
+simulation_time: 1003
 # collect stats after a given number of cycles
 stats_warm_up_time: 3
 # power breakdown, nodes communication details
 detailed: false
 # stop after a given amount of load has been processed
-max_volume_to_be_drained: 0
+max_volume_to_be_drained: 256
 show_buffer_stats: false
 
 # Winoc
@@ -162,7 +163,8 @@ probability_of_retransmission: 0.01 # This seems to be causing an additional del
 #   TRAFFIC_BIT_REVERSAL
 #   TRAFFIC_SHUFFLE
 #   TRAFFIC_BUTTERFLY
-#   TRAFFIC_SLIDE1UP FM:Added for an experiment
+#   TRAFFIC_SLIDEUP
+#   TRAFFIC_FFTW1 : Pattern 1 observed in the FFTW kernel
 traffic_distribution: TRAFFIC_SLIDEUP
 # when traffic table based is specified, use the following
 # configuration file

@@ -41,6 +41,14 @@ struct sc_signal_NSWEH
     sc_signal<T> from_hub;
 };
 
+template <typename T>
+struct sc_signal_ring_NSWE // NOT USED SO FAR, CONSIDER REMOVING
+{
+    sc_signal<T> *east;
+    sc_signal<T> *west;
+    sc_signal<T> *south;
+    sc_signal<T> *north;
+};
 
 SC_MODULE(NoC)
 {
@@ -49,12 +57,19 @@ SC_MODULE(NoC)
     sc_in_clk clock;		// The input clock for the NoC
     sc_in < bool > reset;	// The reset signal for the NoC
 
+    // Internal signals
     // Signals mesh and switch bloc in delta topologies
     sc_signal_NSWEH<bool> **req;
     sc_signal_NSWEH<bool> **ack;
     sc_signal_NSWEH<TBufferFullStatus> **buffer_full_status;
     sc_signal_NSWEH<Flit> **flit;
     sc_signal_NSWE<int> **free_slots;
+
+    // Signals ring (creating routers that support bidirectionality using two rings, one per direction)
+    sc_signal_NSWE<bool> **req_ring[2];
+    sc_signal_NSWE<bool> **ack_ring[2];
+    sc_signal_NSWE<TBufferFullStatus> **buffer_full_status_ring[2];
+    sc_signal_NSWE<Flit> **flit_ring[2];
 
     // NoP
     sc_signal_NSWE<NoP_data> **nop_data;
