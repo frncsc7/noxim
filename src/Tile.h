@@ -201,6 +201,11 @@ SC_MODULE(Tile)
         pe->buffer_full_status_ring_tx_i[k](buffer_full_status_ring_tx_local[k]);
 
         pe->ring_busy_i[k](ring_busy_router[k]);
+
+        for (int i = 0; i < DIRECTIONS; ++i) {
+            pe->req_router_rx_i[k][i](req_ring_rx[k][i]);
+            pe->flit_router_rx_i[k][i](flit_ring_rx[k][i]);
+        }
     }
     // NoP
     r->free_slots[DIRECTION_LOCAL] (free_slots_local);

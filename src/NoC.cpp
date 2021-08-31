@@ -2430,7 +2430,7 @@ void NoC::buildRing()
                 router_id=i;
             else
                 router_id= GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y - (i + j);
-            t[i][j]->r->configure(router_id, // FM: Tile->Router->configure (Need to open the ROuther.cpp to know this)
+            t[i][j]->r->configure(router_id, // FM: Tile->Router->configure (Need to open the Router.cpp to know this)
                       GlobalParams::stats_warm_up_time,
                       GlobalParams::buffer_depth,
                       grtable);

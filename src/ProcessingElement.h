@@ -51,6 +51,8 @@ SC_MODULE(ProcessingElement)
     sc_in < TBufferFullStatus > buffer_full_status_ring_tx_i[RINGS];
 
     sc_in <bool> ring_busy_i[RINGS];
+    sc_in <bool> req_router_rx_i[RINGS][DIRECTIONS]; // All request inputs of the router propagated here, to speed-up injection of packets
+    sc_in <Flit> flit_router_rx_i[RINGS][DIRECTIONS];
 
     // Registers
     int local_id;		// Unique identification number
@@ -65,6 +67,10 @@ SC_MODULE(ProcessingElement)
     bool ring_current_level_tx[RINGS];  // Current level for Alternating Bit Protocol (ABP)
     queue < Packet > ring_packet_queue[RINGS];  // Local queue of packets
     bool ring_transmittedAtPreviousCycle[RINGS];    // Used for distributions with memory
+    bool ring_enable[RINGS]; // FM: Only used by ring-1 in case of a traffic that involves vrgather, generating packets after receiving some
+    bool send_before[RINGS];
+    bool router_current_level_rx[RINGS][DIRECTIONS];
+    bool router_tx_inflight[RINGS];
     // Functions
     void process();
     void rxProcess();		// The receiving process

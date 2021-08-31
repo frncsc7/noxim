@@ -44,9 +44,9 @@ void Router::ring_state()
       captured_reqs[k] = 0;
       if (GlobalParams::topology == TOPOLOGY_RING) { // May be useless
         for (int i = 0; i < DIRECTIONS; ++i) {
-          if ((req_rx_i[i].read() == 1 - current_level_rx[i])) {
+          if ((req_ring_rx_i[k][i].read() == 1 - ring_current_level_rx[k][i])) {
             pending_reqs[k] = pending_reqs[k] + 1;
-            Flit received_flit = flit_rx_i[i].read();
+            Flit received_flit = flit_ring_rx_i[k][i].read();
             if (received_flit.dst_id == local_id) {
               captured_reqs[k] = captured_reqs[k] + 1;
             }
@@ -61,6 +61,7 @@ void Router::ring_state()
       }
       else
         ring_busy_o[k].write(0);
+      //LOG << "Busy for ring " << k << " is " << ring_busy_o[k].read() << endl;
     }
   }
 }
@@ -100,7 +101,6 @@ void Router::ringProcess() {
           input_reqs[k] = input_reqs[k] + 1;
         }
       }
-      //LOG << "Input requests for ring " << k << " is " << input_reqs[k] << endl;
       if (input_reqs[k] > 0) {
         if (flit.dst_id == local_id)
           captured_reqs[k] = captured_reqs[k] + 1;
@@ -118,7 +118,7 @@ void Router::ringProcess() {
         //LOG << " checking availability of Output[" << o << "] for Input[" << i << "][" << vc << "] flit " << flit << endl;
         int rt_status = reservation_table.checkReservation(r,o);
         if (rt_status == RT_AVAILABLE) {
-          LOG << " reserving direction " << o << " for flit " << flit << endl;
+          LOG << " reserving direction " << o << " for flit " << flit << " in ring " << k << endl;
           reservation_table.reserve(r, o);
         }
         else if (rt_status == RT_ALREADY_SAME) {
@@ -148,7 +148,7 @@ void Router::ringProcess() {
               // power contribution already computed in 1st phase
               //LOG<< "*****TX***Direction= "<<i<< "************"<<endl;  // FM: Uncomment
               //LOG<<"cl_tx="<<current_level_tx[o]<<"req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;  // FM: Uncomment
-              LOG << "Input[" << i << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit << endl;
+              LOG << "Input[" << i << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit << " in ring " << k << endl;
               flit_ring_tx_o[k][o].write(flit);
               ring_current_level_tx[k][o] = 1 - ring_current_level_tx[k][o];
               req_ring_tx_o[k][o].write(ring_current_level_tx[k][o]);
@@ -163,14 +163,20 @@ void Router::ringProcess() {
               power.crossBar();
               if (o == DIRECTION_LOCAL) { // FM: it seems it has to get into this block for consuming packets
                 power.networkInterface();
-                LOG << "Consumed flit " << flit << endl;
-                stats.receivedFlit(sc_time_stamp().to_double() / GlobalParams::clock_period_ps, flit);
-                if (GlobalParams:: max_volume_to_be_drained) {
-                  if (drained_volume >= GlobalParams:: max_volume_to_be_drained)
-                    sc_stop();
-                  else {
-                    drained_volume++;
-                    local_drained++;
+                LOG << "Consumed flit " << flit << " in ring " << k << endl;
+//                LOG << "Status of router (1->busy, 0-->free) " << ring_busy_o[k].read() << " in ring " << k << endl;
+                if (((GlobalParams::traffic_distribution == TRAFFIC_FFTW1) && (k==1)) ||
+                   ((GlobalParams::traffic_distribution == TRAFFIC_SLIDEUP) && (k==0))) {
+                  LOG << "Adding a new packet for ring " << k << endl;
+                  stats.receivedFlit(sc_time_stamp().to_double() / GlobalParams::clock_period_ps, flit);
+                  if (GlobalParams:: max_volume_to_be_drained) {
+                    if (drained_volume >= GlobalParams:: max_volume_to_be_drained)
+                      sc_stop();
+                    else {
+                      drained_volume++;
+                      local_drained++;
+                    }
+                    LOG << "Currently received packets = " << drained_volume << endl;
                   }
                 }
               }
@@ -183,22 +189,24 @@ void Router::ringProcess() {
               LOG << " Cannot forward Input[" << i << "][" << vc << "] to Output[" << o << "], flit: " << flit << endl;
               //LOG << " **DEBUG APB: current_level_tx: " << current_level_tx[o] << " ack_tx_i: " << ack_tx_i[o].read() << endl;
               //LOG << " **DEBUG buffer_full_status_tx_i " << buffer_full_status_tx_i[o].read().mask[vc] << endl;
-                //LOG<<"END_NO_cl_tx="<<current_level_tx[o]<<"_req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;
-                /*
-                if (flit.flit_type == FLIT_TYPE_HEAD)
-                reservation_table.release(i,flit.vc_id,o);
-                */
+              //LOG<<"END_NO_cl_tx="<<current_level_tx[o]<<"_req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;
+              /*
+              if (flit.flit_type == FLIT_TYPE_HEAD)
+              reservation_table.release(i,flit.vc_id,o);
+              */
             }
           }
         }
         if ((int)(sc_time_stamp().to_double() / GlobalParams::clock_period_ps)%2==0)
           reservation_table.updateIndex();
       }
-      //LOG<<"req_rx_i[" << k << "][DIRECTION_LOCAL]="<<req_ring_rx_i[k][DIRECTION_LOCAL].read() << endl;
-      //LOG<<"current_level_rx[" << k << "][DIRECTION_LOCAL]="<<current_level_rx[k][DIRECTION_LOCAL] << endl;
+      //LOG << "Ring " << k << " req_ring_rx_i = " << req_ring_rx_i[k][DIRECTION_LOCAL].read() << endl;
+      //LOG << "Ring " << k << " ring_current_level_rx = " << ring_current_level_rx[k][DIRECTION_LOCAL] << endl;
+      //LOG << "Ring " << k << " ack_ring_rx_o = " << ack_ring_rx_o[k][DIRECTION_LOCAL].read() << endl;
+      //LOG << "Ring " << k << " ring_busy_o = " << ring_busy_o[k].read() << endl;
       if ((req_ring_rx_i[k][DIRECTION_LOCAL].read() == 1 - ring_current_level_rx[k][DIRECTION_LOCAL]) && !ring_tx_inflight[k]) { // Given priority to the in-flight packets
         //LOG << "Tx from PE" << endl;
-        //LOG << "Get a packet from the PE packet_queue" << endl;
+        LOG << "Get a packet from the PE packet_queue for ring " << k << endl;
         flit_PE[k] = flit_ring_rx_i[k][DIRECTION_LOCAL];
         ring_current_level_rx[k][DIRECTION_LOCAL] = 1 - ring_current_level_rx[k][DIRECTION_LOCAL];
         ack_ring_rx_o[k][DIRECTION_LOCAL].write(ring_current_level_rx[k][DIRECTION_LOCAL]);
@@ -218,7 +226,7 @@ void Router::ringProcess() {
         //LOG << " checking availability of Output[" << o << "] for Input[" << i << "][" << vc << "] flit " << flit_PE << endl;
         int rt_status = reservation_table.checkReservation(r,o);
         if (rt_status == RT_AVAILABLE) {
-          //LOG << " reserving direction " << o << " for PE flit " << flit_PE[k] << endl;
+          LOG << " reserving direction " << o << " for PE flit " << flit_PE[k] << " in ring " << k << endl;
           reservation_table.reserve(r, o);
         }
         else if (rt_status == RT_ALREADY_SAME) {
@@ -241,7 +249,7 @@ void Router::ringProcess() {
           int o = reservations[rnd_idx].first;
           int vc = reservations[rnd_idx].second;
           //LOG<<"From PE : cl_tx="<<current_level_tx[o]<<"req_tx_o="<<req_tx_o[o].read()<<" _ack= "<<ack_tx_i[o].read()<< endl;  // FM: Uncomment
-          //LOG << "Input[" << DIRECTION_LOCAL << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit_PE[k] << endl;
+          LOG << "Input[" << DIRECTION_LOCAL << "][" << vc << "] forwarded to Output[" << o << "], flit: " << flit_PE[k] << endl;
           flit_ring_tx_o[k][o].write(flit_PE[k]);
           ring_current_level_tx[k][o] = 1 - ring_current_level_tx[k][o];
           req_ring_tx_o[k][o].write(ring_current_level_tx[k][o]);
